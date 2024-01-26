@@ -29,5 +29,28 @@ public interface UserConstant {
      */
     String BAN_ROLE = "ban";
 
-    // endregion
+
+    //------------------------------------账号设置----------------------------------------------
+    /**
+     * 账号最短长度
+     */
+    int ACCOUNT_MIN_LENGTH = 8;
+    /**
+     * 账号最长长度
+     */
+    int ACCOUNT_MAX_LENGTH = 10;
+
+    /**
+     * 密码最短长度
+     */
+    int PASSWORD_MIN_LENGTH = 8;
+    /**
+     * 密码最长长度
+     */
+    int PASSWORD_MAX_LENGTH = 16;
+
+    /**
+     * 用户默认头像
+     */
+     String DEFAULT_AVATAR = "https://image.cqiewxl.cn/2023/09/26/97dbdd68b48e4027988d2ce90965cdd5.jpg";
 }

@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 主类（项目启动入口）
- * @author 16956
+ * @author wxl
  */
 @SpringBootApplication
 @MapperScan("org.wxl.wordTraining.mapper")

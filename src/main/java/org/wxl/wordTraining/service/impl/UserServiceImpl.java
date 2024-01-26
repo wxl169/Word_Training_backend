@@ -1,8 +1,10 @@
 package org.wxl.wordTraining.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.mapper.UserMapper;
@@ -11,6 +13,8 @@ import org.wxl.wordTraining.model.enums.UserRoleEnum;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.model.vo.user.UserVO;
 import org.wxl.wordTraining.service.UserService;
+
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,10 +34,16 @@ import org.wxl.wordTraining.constant.UserConstant;
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
+    private final UserMapper userMapper;
+    @Autowired
+    public UserServiceImpl(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+
     /**
      * 盐值，混淆密码
      */
-    private static final String SALT = "yupi";
+    private static final String SALT = "wxl";
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -41,30 +51,49 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < 4) {
+        if (userAccount.length() < UserConstant.ACCOUNT_MIN_LENGTH) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
         }
-        if (userPassword.length() < 8 || checkPassword.length() < 8) {
+        if (userAccount.length() > UserConstant.ACCOUNT_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过长");
+        }
+        if (userPassword.length() < UserConstant.PASSWORD_MIN_LENGTH || checkPassword.length() < UserConstant.PASSWORD_MIN_LENGTH ) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+        }
+        if (userPassword.length() > UserConstant.PASSWORD_MAX_LENGTH || checkPassword.length() > UserConstant.PASSWORD_MAX_LENGTH ) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过长");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
         }
         synchronized (userAccount.intern()) {
-            // 账户不能重复
-            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("userAccount", userAccount);
-            long count = this.baseMapper.selectCount(queryWrapper);
+            //账号不能重复
+            LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(User::getUserAccount,userAccount);
+
+            long count = userMapper.selectCount(queryWrapper);
             if (count > 0) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
             }
+
             // 2. 加密
             String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+
             // 3. 插入数据
             User user = new User();
             user.setUserAccount(userAccount);
             user.setUserPassword(encryptPassword);
+            user.setUsername("用户"+userAccount);
+            user.setGender(0);
+            user.setAvatar(UserConstant.DEFAULT_AVATAR);
+            user.setRole(UserConstant.DEFAULT_ROLE);
+            user.setPointNumber(0L);
+            user.setCoiledDay(0L);
+            user.setOnlineDay(0L);
+            user.setCreateTime(LocalDateTime.now());
+            user.setUpdateTime(LocalDateTime.now());
+            user.setIsDelete(0);
             boolean saveResult = this.save(user);
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
