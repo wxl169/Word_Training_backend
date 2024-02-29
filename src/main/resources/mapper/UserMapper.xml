@@ -18,6 +18,7 @@
         <result column="concern" property="concern" />
         <result column="coiled_day" property="coiledDay" />
         <result column="online_day" property="onlineDay" />
+        <result column="last_login_time" property="lastLoginTime"/>
         <result column="create_time" property="createTime" />
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />

@@ -1,8 +1,12 @@
 package org.wxl.wordTraining.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.wxl.wordTraining.model.dto.user.UserListRequest;
 import org.wxl.wordTraining.model.entity.User;
+import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
+import org.wxl.wordTraining.model.vo.user.UserListVO;
 import org.wxl.wordTraining.model.vo.user.UserVO;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
@@ -29,10 +33,9 @@ public interface UserService extends IService<User> {
      *
      * @param userAccount  用户账户
      * @param userPassword 用户密码
-     * @param request
      * @return 脱敏后的用户信息
      */
-    LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request);
+    LoginUserVO userLogin(String userAccount, String userPassword );
 
     /**
      * 获取当前登录用户
@@ -98,4 +101,11 @@ public interface UserService extends IService<User> {
     List<UserVO> getUserVO(List<User> userList);
 
 
+    /**
+     * 分页获取用户封装列表
+     *
+     * @param userListRequest 分页筛选条件
+     * @return 脱敏用户列表数据
+     */
+    PageVO getUserList(UserListRequest userListRequest);
 }

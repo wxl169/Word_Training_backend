@@ -1,18 +1,28 @@
 package org.wxl.wordTraining.controller;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import org.wxl.wordTraining.annotation.AuthCheck;
+import org.wxl.wordTraining.annotation.JwtToken;
 import org.wxl.wordTraining.common.BaseResponse;
+import org.wxl.wordTraining.common.DeleteRequest;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.common.ResultUtils;
+import org.wxl.wordTraining.constant.UserConstant;
 import org.wxl.wordTraining.exception.BusinessException;
-import org.wxl.wordTraining.model.dto.user.UserRegisterRequest;
+import org.wxl.wordTraining.exception.ThrowUtils;
+import org.wxl.wordTraining.model.dto.user.*;
+import org.wxl.wordTraining.model.entity.User;
+import org.wxl.wordTraining.model.vo.PageVO;
+import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+
+import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 用户接口
@@ -38,6 +48,7 @@ public class UserController {
      * @return
      */
     @PostMapping("/register")
+    @JwtToken
     public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
         if (userRegisterRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -55,23 +66,23 @@ public class UserController {
     /**
      * 用户登录
      *
-     * @param userLoginRequest
-     * @param request
-     * @return
+     * @param userLoginRequest 登录用户的账号密码
+     * @return 当前登录用户的脱敏信息
      */
-//    @PostMapping("/login")
-//    public BaseResponse<LoginUserVO> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
-//        if (userLoginRequest == null) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        String userAccount = userLoginRequest.getUserAccount();
-//        String userPassword = userLoginRequest.getUserPassword();
-//        if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        LoginUserVO loginUserVO = userService.userLogin(userAccount, userPassword, request);
-//        return ResultUtils.success(loginUserVO);
-//    }
+    @PostMapping("/login")
+    @JwtToken
+    public BaseResponse<LoginUserVO> userLogin(@RequestBody UserLoginRequest userLoginRequest) {
+        if (userLoginRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String userAccount = userLoginRequest.getUserAccount();
+        String userPassword = userLoginRequest.getUserPassword();
+        if (StringUtils.isAnyBlank(userAccount, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        LoginUserVO loginUserVO = userService.userLogin(userAccount, userPassword);
+        return ResultUtils.success(loginUserVO);
+    }
 
 
 
@@ -81,14 +92,18 @@ public class UserController {
      * @param request
      * @return
      */
-//    @PostMapping("/logout")
-//    public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
-//        if (request == null) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        boolean result = userService.userLogout(request);
-//        return ResultUtils.success(result);
-//    }
+    @PostMapping("/logout")
+    public BaseResponse userLogout(HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean result = userService.userLogout(request);
+        if (!result){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR);
+        }
+        return ResultUtils.success("退出成功");
+    }
+
 
     /**
      * 获取当前登录用户
@@ -96,15 +111,18 @@ public class UserController {
      * @param request
      * @return
      */
-//    @GetMapping("/get/login")
-//    public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
-//        User user = userService.getLoginUser(request);
-//        return ResultUtils.success(userService.getLoginUserVO(user));
-//    }
+    @GetMapping("/get/login")
+    public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = userService.getLoginUser(request);
+        return ResultUtils.success(userService.getLoginUserVO(user));
+    }
 
     // endregion
 
-    // region 增删改查
+    // region  增删改查
 
     /**
      * 创建用户
@@ -129,40 +147,71 @@ public class UserController {
     /**
      * 删除用户
      *
-     * @param deleteRequest
-     * @param request
-     * @return
+     * @param deleteRequest 用户id
+     * @param request 用户信息
+     * @return 是否删除成功
      */
-//    @PostMapping("/delete")
-//    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-//    public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
-//        if (deleteRequest == null || deleteRequest.getId() <= 0) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        boolean b = userService.removeById(deleteRequest.getId());
-//        return ResultUtils.success(b);
-//    }
+    @PostMapping("/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
+        if (deleteRequest == null || deleteRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = userService.removeById(deleteRequest.getId());
+        return ResultUtils.success(b);
+    }
 
     /**
      * 更新用户
      *
-     * @param userUpdateRequest
-     * @param request
-     * @return
+     * @param userUpdateRequest 用户需要修改的数据
+     * @param request 当前用户信息
+     * @return 是否修改成功
      */
-//    @PostMapping("/update")
-//    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-//    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest,
-//            HttpServletRequest request) {
-//        if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        User user = new User();
-//        BeanUtils.copyProperties(userUpdateRequest, user);
-//        boolean result = userService.updateById(user);
-//        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-//        return ResultUtils.success(true);
-//    }
+    @PostMapping("/update")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest,
+            HttpServletRequest request) {
+        if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = new User();
+        BeanUtils.copyProperties(userUpdateRequest, user);
+        boolean result = userService.updateById(user);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
+
+    /**
+     * 用户更新自己的信息
+     *
+     * @param userUpdateByUserRequest 用户需要修改的数据
+     * @param request 当前用户信息
+     * @return 是否修改成功
+     */
+    @PostMapping("/update/all")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateByUserRequest userUpdateByUserRequest,
+                                            HttpServletRequest request) {
+        if (userUpdateByUserRequest == null || userUpdateByUserRequest.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = new User();
+        if (StringUtils.isNotBlank(userUpdateByUserRequest.getBirthday())){
+            // 定义日期时间格式
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String birthday = userUpdateByUserRequest.getBirthday() + " 00:00:00";
+            // 解析字符串为LocalDateTime对象
+            LocalDateTime dateTime = LocalDateTime.parse(birthday, formatter);
+            user.setBirthday(dateTime);
+        }
+        BeanUtils.copyProperties(userUpdateByUserRequest, user);
+        boolean result = userService.updateById(user);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        return ResultUtils.success(true);
+    }
+
 
     /**
      * 根据 id 获取用户（仅管理员）
@@ -205,8 +254,8 @@ public class UserController {
      */
 //    @PostMapping("/list/page")
 //    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-//    public BaseResponse<Page<User>> listUserByPage(@RequestBody UserQueryRequest userQueryRequest,
-//            HttpServletRequest request) {
+//    public BaseResponse<Page<User>> listUserByPage(@RequestBody UserListRequest userQueryRequest,
+//                                                   HttpServletRequest request) {
 //        long current = userQueryRequest.getCurrent();
 //        long size = userQueryRequest.getPageSize();
 //        Page<User> userPage = userService.page(new Page<>(current, size),
@@ -217,27 +266,21 @@ public class UserController {
     /**
      * 分页获取用户封装列表
      *
-     * @param userQueryRequest
-     * @param request
-     * @return
+     * @param userListRequest 分页筛选条件
+     * @param request 获取登录信息
+     * @return 脱敏用户列表数据
      */
-//    @PostMapping("/list/page/vo")
-//    public BaseResponse<Page<UserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest,
-//            HttpServletRequest request) {
-//        if (userQueryRequest == null) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        long current = userQueryRequest.getCurrent();
-//        long size = userQueryRequest.getPageSize();
-//        // 限制爬虫
-//        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
-//        Page<User> userPage = userService.page(new Page<>(current, size),
-//                userService.getQueryWrapper(userQueryRequest));
-//        Page<UserVO> userVOPage = new Page<>(current, size, userPage.getTotal());
-//        List<UserVO> userVO = userService.getUserVO(userPage.getRecords());
-//        userVOPage.setRecords(userVO);
-//        return ResultUtils.success(userVOPage);
-//    }
+    @PostMapping("/list/page")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<PageVO> listUserVOByPage(@RequestBody UserListRequest userListRequest,
+                                                 HttpServletRequest request) {
+        if (userListRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        PageVO userList = userService.getUserList(userListRequest);
+        return ResultUtils.success(userList);
+
+    }
 
     // endregion
 

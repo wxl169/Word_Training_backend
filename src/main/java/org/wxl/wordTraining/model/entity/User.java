@@ -70,6 +70,9 @@ public class User implements Serializable {
     @ApiModelProperty(value = "在线天数")
     private Long onlineDay;
 
+    @ApiModelProperty(value = "最近在线时间")
+    private LocalDateTime lastLoginTime;
+
     @ApiModelProperty(value = "创建时间")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

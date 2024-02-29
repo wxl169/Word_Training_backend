@@ -1,22 +1,36 @@
 package org.wxl.wordTraining.service.impl;
 
+import com.auth0.jwt.JWT;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.wxl.wordTraining.common.ErrorCode;
+import org.wxl.wordTraining.constant.CommonConstant;
+import org.wxl.wordTraining.constant.JWTConstant;
 import org.wxl.wordTraining.exception.BusinessException;
+import org.wxl.wordTraining.exception.ThrowUtils;
 import org.wxl.wordTraining.mapper.UserMapper;
+import org.wxl.wordTraining.model.dto.user.UserListRequest;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.enums.UserRoleEnum;
+import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
+import org.wxl.wordTraining.model.vo.user.UserListVO;
 import org.wxl.wordTraining.model.vo.user.UserVO;
 import org.wxl.wordTraining.service.UserService;
 
+import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -25,19 +39,25 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 import org.wxl.wordTraining.constant.UserConstant;
+import org.wxl.wordTraining.utils.BeanCopyUtils;
+import org.wxl.wordTraining.utils.JwtUtil;
 
 /**
  * 用户服务实现
  *
+ * @author wxl
  */
 @Service
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final UserMapper userMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final Random random = new Random();
     @Autowired
-    public UserServiceImpl(UserMapper userMapper) {
-        this.userMapper = userMapper;
+    public UserServiceImpl(UserMapper userMapper, RedisTemplate<String,Object> redisTemplate) {
+      this.userMapper = userMapper;
+        this.redisTemplate = redisTemplate;
     }
 
     /**
@@ -45,28 +65,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     private static final String SALT = "wxl";
 
+    /**
+     * 注册用户
+     * @param userAccount   用户账户
+     * @param userPassword  用户密码
+     * @param checkPassword 校验密码
+     * @return 注册后的主键id
+     */
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < UserConstant.ACCOUNT_MIN_LENGTH) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
-        }
-        if (userAccount.length() > UserConstant.ACCOUNT_MAX_LENGTH) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过长");
-        }
-        if (userPassword.length() < UserConstant.PASSWORD_MIN_LENGTH || checkPassword.length() < UserConstant.PASSWORD_MIN_LENGTH ) {
+
+        this.judgeUserAccountAndPassword(userAccount,userPassword);
+
+        if(checkPassword.length() < UserConstant.PASSWORD_MIN_LENGTH){
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
         }
-        if (userPassword.length() > UserConstant.PASSWORD_MAX_LENGTH || checkPassword.length() > UserConstant.PASSWORD_MAX_LENGTH ) {
+        if (checkPassword.length() > UserConstant.PASSWORD_MAX_LENGTH ) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过长");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
         }
+
         synchronized (userAccount.intern()) {
             //账号不能重复
             LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
@@ -102,33 +127,68 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
     }
 
+    /**
+     * 登录账号
+     * @param userAccount  用户账户
+     * @param userPassword 用户密码
+     * @return 脱敏后的用户信息
+     */
     @Override
-    public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
+    public LoginUserVO userLogin(String userAccount, String userPassword) {
         // 1. 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < 4) {
+
+        if (userAccount.length() < UserConstant.ACCOUNT_MIN_LENGTH) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号错误");
         }
-        if (userPassword.length() < 8) {
+        if (userPassword.length() < UserConstant.PASSWORD_MIN_LENGTH) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
         // 2. 加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         // 查询用户是否存在
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userAccount", userAccount);
-        queryWrapper.eq("userPassword", encryptPassword);
-        User user = this.baseMapper.selectOne(queryWrapper);
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserAccount,userAccount);
+        queryWrapper.eq(User::getUserPassword,encryptPassword);
+        User user = userMapper.selectOne(queryWrapper);
         // 用户不存在
         if (user == null) {
             log.info("user login failed, userAccount cannot match userPassword");
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
-        // 3. 记录用户的登录态
-        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
-        return this.getLoginUserVO(user);
+
+        User newUser = null;
+        synchronized (userAccount.intern()){
+            //修改最近登录时间，并记录在线天数
+            newUser = this.addLoginTime(user);
+        }
+
+        String redisKeyByUserAccount = String.format("wordTraining:user:userLogin:%s",userAccount);
+
+        //根据账号查询Redis判断该账号是否登录
+        String  oldTokenByUserAccount = (String) redisTemplate.opsForValue().get(redisKeyByUserAccount);
+        log.info("oldToken为：{}",oldTokenByUserAccount);
+
+        String redisKeyByToken = null;
+        if (oldTokenByUserAccount != null){
+            //如果已经登录，则删除原token
+            redisKeyByToken = String.format("wordTraining:user:userLogin:%s",oldTokenByUserAccount);
+            redisTemplate.delete(redisKeyByToken);
+            redisTemplate.delete(redisKeyByUserAccount);
+        }
+
+        //生成token，并返回脱敏后的用户数据
+        LoginUserVO loginUserVO = this.getLoginUserVO(newUser);
+        String newToken = JwtUtil.createToken(user.getId(), user.getUserAccount());
+        loginUserVO.setToken(newToken);
+        int randomMinutes = random.nextInt(10) + 1;
+        int totalMinutes = 60 * 12 + randomMinutes;
+        redisKeyByToken = String.format("wordTraining:user:userLogin:%s",newToken);
+        redisTemplate.opsForValue().set(redisKeyByToken,userAccount,totalMinutes, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(redisKeyByUserAccount,newToken,totalMinutes, TimeUnit.MINUTES);
+        return loginUserVO;
     }
 
 
@@ -140,17 +200,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public User getLoginUser(HttpServletRequest request) {
-        // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
+        String token = request.getHeader(JWTConstant.TOKEN_NAME);
+        if (token == null){
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
-        currentUser = this.getById(userId);
-        if (currentUser == null) {
-            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        String redisKeyByToken  = String.format("wordTraining:user:userLogin:%s",token);
+        String userAccount = (String) redisTemplate.opsForValue().get(redisKeyByToken);
+        if (userAccount == null){
+            throw new BusinessException(ErrorCode.TOKEN_EXPIRE);
+        }
+        String redisKeyByUserAccount = String.format("wordTraining:user:userLogin:%s",userAccount);
+        String oldToken = (String) redisTemplate.opsForValue().get(redisKeyByUserAccount);
+        if (oldToken == null) {
+            throw new BusinessException(ErrorCode.TOKEN_EXPIRE);
+        }
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserAccount,userAccount);
+        User currentUser = userMapper.selectOne(queryWrapper);
+        if (currentUser == null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
         return currentUser;
     }
@@ -163,16 +231,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public User getLoginUserPermitNull(HttpServletRequest request) {
-        // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
+        String token = request.getHeader(JWTConstant.TOKEN_NAME);
+        if (token == null){
+            return  null;
+        }
+        String redisKeyByToken  = String.format("wordTraining:user:userLogin:%s",token);
+        String userAccount = (String) redisTemplate.opsForValue().get(redisKeyByToken);
+        if (userAccount == null){
             return null;
         }
-        // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
-        return this.getById(userId);
+        String redisKeyByUserAccount = String.format("wordTraining:user:userLogin:%s",userAccount);
+        String oldToken = (String) redisTemplate.opsForValue().get(redisKeyByUserAccount);
+        if (oldToken == null) {
+            return null;
+        }
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUserAccount,userAccount);
+        User currentUser = userMapper.selectOne(queryWrapper);
+        return currentUser;
     }
+
+
+
+
 
     /**
      * 是否为管理员
@@ -200,11 +281,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public boolean userLogout(HttpServletRequest request) {
-        if (request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE) == null) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "未登录");
+        String token = request.getHeader(JWTConstant.TOKEN_NAME);
+        if (token == null){
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 移除登录态
-        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+        String redisKeyByToken  = String.format("wordTraining:user:userLogin:%s",token);
+        String userAccount = (String) redisTemplate.opsForValue().get(redisKeyByToken);
+        if (userAccount == null){
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        String redisKeyByUserAccount = String.format("wordTraining:user:userLogin:%s",userAccount);
+//        String oldToken = (String)redisTemplate.opsForValue().get(redisKeyByUserAccount);
+//        if (oldToken == null){
+//            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+//        }
+        redisTemplate.delete(redisKeyByToken);
+        redisTemplate.delete(redisKeyByUserAccount);
         return true;
     }
 
@@ -236,5 +328,107 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return userList.stream().map(this::getUserVO).collect(Collectors.toList());
     }
 
+    /**
+     * 分页获取用户封装列表
+     * @param userListRequest 分页筛选条件
+     * @return 脱敏用户数据列表
+     */
+    @Override
+    public PageVO getUserList(UserListRequest userListRequest) {
+        Integer current = userListRequest.getCurrent();
+        Integer pageSize = userListRequest.getPageSize();
 
+        if (current == null || current <= 0){
+            current = CommonConstant.PAGE_NUM;
+        }
+        if (pageSize == null || pageSize <= 0){
+            pageSize = CommonConstant.PAGE_SIZE;
+        }
+        // 限制爬虫
+        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR);
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.like(StringUtils.isNotBlank(userListRequest.getUserAccount()),User::getUserAccount,userListRequest.getUserAccount())
+                .like(StringUtils.isNotBlank(userListRequest.getUsername()),User::getUsername,userListRequest.getUsername())
+                .eq(userListRequest.getGender() != null,User::getGender,userListRequest.getGender())
+                .eq(StringUtils.isNotBlank(userListRequest.getRole()),User::getRole,userListRequest.getRole());
+        Page<User> page = new Page<>(current,pageSize);
+        page(page,queryWrapper);
+        List<UserListVO> userListVOS = BeanCopyUtils.copyBeanList(page.getRecords(), UserListVO.class);
+        return new PageVO(userListVOS,page.getTotal());
+    }
+
+
+    /**
+     * 判断账号密码格式是否正确
+     * @param userAccount 账号
+     * @param userPassword 密码
+     */
+    private void judgeUserAccountAndPassword(String userAccount,String userPassword){
+        if (userAccount.length() < UserConstant.ACCOUNT_MIN_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
+        }
+        if (userAccount.length() > UserConstant.ACCOUNT_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过长");
+        }
+        if (userPassword.length() < UserConstant.PASSWORD_MIN_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+        }
+        if (userPassword.length() > UserConstant.PASSWORD_MAX_LENGTH ){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过长");
+        }
+    }
+
+
+    /**
+     * 判断两个时间是否在同一天
+     * @param date1 当前时间
+     * @param date2 数据库中的时间
+     * @return 是否在同一天
+     */
+    public boolean isSameDay(LocalDate date1, LocalDate date2) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        return date1.format(formatter).equals(date2.format(formatter));
+    }
+
+
+    /**
+     * 修改在线天数
+     * @param user 旧用户信息
+     * @return  新用户信息
+     */
+    private User addLoginTime(User user) {
+        LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+        if (user.getLastLoginTime() == null && user.getOnlineDay() == 0){
+            updateWrapper.set(User::getLastLoginTime,LocalDateTime.now())
+                    .set(User::getCoiledDay,1)
+                    .set(User::getOnlineDay,1)
+                    .eq(User::getId,user.getId());
+        }else if(user.getLastLoginTime() == null && user.getOnlineDay() != 0){
+            updateWrapper.set(User::getLastLoginTime,LocalDateTime.now())
+                    .set(User::getCoiledDay,1)
+                    .set(User::getOnlineDay,user.getOnlineDay() + 1)
+                    .eq(User::getId,user.getId());
+        } else {
+            //记录当前登录用户最近登录时间
+            updateWrapper.set(!this.isSameDay(LocalDate.from(user.getLastLoginTime()), LocalDate.from(LocalDateTime.now())), User::getOnlineDay, user.getOnlineDay() + 1)
+                    .set(User::getLastLoginTime, LocalDateTime.now())
+                    .eq(User::getId, user.getId());
+            //判断当前时间与最近登录时间是否间隔24小时
+            if (Duration.between(user.getLastLoginTime(), LocalDateTime.now()).toHours() > 24) {
+                //有则修改为1
+                updateWrapper.set(User::getCoiledDay,1);
+            }else{
+                //没有则加1
+                updateWrapper.set(!this.isSameDay(LocalDate.from(user.getLastLoginTime()), LocalDate.from(LocalDateTime.now())),User::getCoiledDay,user.getCoiledDay() + 1);
+            }
+        }
+        boolean update = this.update(updateWrapper);
+        if (!update) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "请重新登录");
+        }
+        log.info("旧用户信息{}",user);
+        User newUser = userMapper.selectById(user.getId());
+        log.info("新用户信息{}",newUser);
+        return newUser;
+    }
 }
