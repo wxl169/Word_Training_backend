@@ -1,6 +1,6 @@
 package org.wxl.wordTraining.mapper;
 
-import org.wxl.wordTraining.model.entity.WordType;
+import org.wxl.wordTraining.model.entity.Tag;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**
@@ -10,6 +10,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  *
  * @author wxl
  */
-public interface WordTypeMapper extends BaseMapper<WordType> {
+public interface TagMapper extends BaseMapper<Tag> {
 
 }

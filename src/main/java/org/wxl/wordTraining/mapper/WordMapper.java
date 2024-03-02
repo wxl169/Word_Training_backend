@@ -9,7 +9,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  * </p>
  *
  * @author wxl
- * @since 2024-02-21
  */
 public interface WordMapper extends BaseMapper<Word> {
 

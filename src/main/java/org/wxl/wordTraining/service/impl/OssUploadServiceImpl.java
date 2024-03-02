@@ -65,6 +65,30 @@ public class OssUploadServiceImpl implements UploadService {
         return img;
     }
 
+    /**
+     * 上传文章图片
+     * @param avatar 文件名
+     * @param request 当前用户信息
+     * @return 图片路径
+     */
+    @Override
+    public String uploadArticleImg(MultipartFile avatar, HttpServletRequest request) {
+        if (avatar == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请上传图片");
+        }
+        //判断文件类型或者文件大小
+        //获取原始文件名
+        String originalFilename = avatar.getOriginalFilename();
+        //对原始文件名进行判断
+        assert originalFilename != null;
+        if(!originalFilename.endsWith(".png") && !originalFilename.endsWith(".jpg")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片格式不符");
+        }
+        //如果判断通过上传文件到OSS
+        String filePath = PathUtils.generateFilePath(originalFilename);
+        return uploadOss(avatar, filePath);
+    }
+
     private String uploadOss(MultipartFile imgFile,String filePath){
         //构造一个带指定 Region 对象的配置类       地区：华东
         Configuration cfg = new Configuration(	Region.huadongZheJiang2());

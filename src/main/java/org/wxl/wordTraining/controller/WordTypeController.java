@@ -67,9 +67,10 @@ public class WordTypeController {
     @GetMapping("/list")
     @JwtToken
     public BaseResponse<List<WordTypeVO>> listWordTypeVO(HttpServletRequest request) {
-        List<WordType> list = wordTypeService.list();
-        List<WordTypeVO> wordListVOS = BeanCopyUtils.copyBeanList(list, WordTypeVO.class);
-        return ResultUtils.success(wordListVOS);
+        LambdaQueryWrapper<WordType> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(WordType::getIsGroupName,0);
+        List<WordType> wordTypeList = wordTypeService.list(queryWrapper);
+        return ResultUtils.success(BeanCopyUtils.copyBeanList(wordTypeList,WordTypeVO.class));
     }
 
 

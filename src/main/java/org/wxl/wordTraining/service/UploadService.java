@@ -15,4 +15,12 @@ public interface UploadService {
      * @return 返回图片路径
      */
     String uploadImg(MultipartFile avatarUrl, HttpServletRequest request);
+
+    /**
+     * 上传文章图片
+     * @param avatar 文件名
+     * @param request 当前用户信息
+     * @return 图片路径
+     */
+    String uploadArticleImg(MultipartFile avatar, HttpServletRequest request);
 }
