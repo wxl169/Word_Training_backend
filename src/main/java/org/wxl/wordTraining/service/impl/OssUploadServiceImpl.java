@@ -46,7 +46,8 @@ public class OssUploadServiceImpl implements UploadService {
         String originalFilename = avatarUrl.getOriginalFilename();
         //对原始文件名进行判断
         assert originalFilename != null;
-        if(!originalFilename.endsWith(".png") && !originalFilename.endsWith(".jpg")) {
+        if(!originalFilename.endsWith(".png") && !originalFilename.endsWith(".jpg")
+                && !originalFilename.endsWith(".jpeg") && !originalFilename.endsWith(".gif")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片格式不符");
         }
         //如果判断通过上传文件到OSS
@@ -81,7 +82,8 @@ public class OssUploadServiceImpl implements UploadService {
         String originalFilename = avatar.getOriginalFilename();
         //对原始文件名进行判断
         assert originalFilename != null;
-        if(!originalFilename.endsWith(".png") && !originalFilename.endsWith(".jpg")) {
+        if(!originalFilename.endsWith(".png") && !originalFilename.endsWith(".jpg")
+                && !originalFilename.endsWith(".jpeg") && !originalFilename.endsWith(".gif")) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片格式不符");
         }
         //如果判断通过上传文件到OSS

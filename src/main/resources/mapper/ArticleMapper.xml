@@ -23,4 +23,25 @@
         <result column="is_delete" property="isDelete" />
     </resultMap>
 
+    <select id="selectArticleList" resultType="org.wxl.wordTraining.model.vo.article.ArticleVO"
+            parameterType="org.wxl.wordTraining.model.dto.article.ArticleListRequest">
+        select user_id,title,content,a.id,user_account,description,visit_number,praise_number,comment_number,collection_number,
+               tags,cover_image,status,permissions,review_opinions,a.create_time,a.update_time
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="userAccount != null and userAccount != ''">
+           and  user_account like CONCAT('%',#{userAccount},'%')
+        </if>
+        <if test="content != null and content != '' ">
+           and (title like  CONCAT('%',#{content},'%') or content like CONCAT('%',#{content},'%')  or description like CONCAT('%',#{content},'%'))
+        </if>
+        <if test="status != null">
+            and  a.status = #{status}
+        </if>
+        <if test="permissions">
+            and permissions = #{permissions}
+        </if>
+        LIMIT ${(current - 1) * pageSize},${pageSize};
+    </select>
+
 </mapper>
