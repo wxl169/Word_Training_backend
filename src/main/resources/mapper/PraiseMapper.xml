@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.wxl.wordTraining.mapper.PraiseMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.wxl.wordTraining.model.entity.Praise">
+        <id column="id" property="id" />
+        <result column="praise_id" property="praiseId" />
+        <result column="type" property="type" />
+        <result column="user_id" property="userId" />
+        <result column="praise_time" property="praiseTime" />
+        <result column="is_delete" property="isDelete" />
+    </resultMap>
+    <select id="selectPraise" resultType="org.wxl.wordTraining.model.entity.Praise">
+        select id,praise_id,`type`,user_id,is_delete
+        from tb_praise
+        where
+            praise_id = #{praiseAddRequest.id}
+          and `type` = #{praiseAddRequest.type}
+          and user_id = #{loginUser.id}
+    </select>
+    <update id="updatePraise">
+        update tb_praise set is_delete = 0,praise_time = now()
+        where
+            is_delete = 1 and praise_id = #{praiseAddRequest.id} and type = #{praiseAddRequest.type} and user_id = #{loginUser.id}
+    </update>
+</mapper>

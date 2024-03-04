@@ -2,6 +2,7 @@ package org.wxl.wordTraining.service;
 
 import org.wxl.wordTraining.common.IdRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleAddRequest;
+import org.wxl.wordTraining.model.dto.article.ArticleAllRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleUpdateReviewOpinionsRequest;
 import org.wxl.wordTraining.model.entity.TbArticle;
@@ -46,4 +47,11 @@ public interface IArticleService extends IService<TbArticle> {
      * @return 是否修改成功
      */
     boolean updateArticleReviewOpinions(ArticleUpdateReviewOpinionsRequest articleUpdateReviewOpinionsRequest);
+    /**
+     * 用户查询文章列表信息
+     * @param articleAllRequest 查询条件
+     * @return 文章列表信息
+     */
+    PageVO selectArticleListAll(ArticleAllRequest articleAllRequest,HttpServletRequest request);
+
 }

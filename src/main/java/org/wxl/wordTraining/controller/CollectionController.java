@@ -2,6 +2,7 @@ package org.wxl.wordTraining.controller;
 
 
 import org.elasticsearch.rest.RestUtils;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +32,7 @@ import javax.servlet.http.HttpServletRequest;
 public class CollectionController {
     private final ICollectionService collectionService;
     private final UserService userService;
+
     @Autowired
     public CollectionController(ICollectionService collectionService,UserService userService){
         this.collectionService = collectionService;

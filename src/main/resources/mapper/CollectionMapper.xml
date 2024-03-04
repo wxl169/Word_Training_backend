@@ -11,5 +11,18 @@
         <result column="collection_time" property="collectionTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <update id="updateCollection">
+        update tb_collection set is_delete = 0,collection_time = now()
+            where
+        is_delete = 1 and collection_id = #{collectionAddRequest.id} and type = #{collectionAddRequest.type} and user_id = #{loginUser.id}
+    </update>
+    <select id="selectCollection" resultType="org.wxl.wordTraining.model.entity.TbCollection">
+        select id,collection_id,`type`,user_id,is_delete
+        from tb_collection
+        where
+            collection_id = #{collectionAddRequest.id}
+            and `type` = #{collectionAddRequest.type}
+            and user_id = #{loginUser.id}
+    </select>
 
 </mapper>

@@ -28,4 +28,13 @@ public interface ICollectionService extends IService<TbCollection> {
      * @return 是否取消收藏成功
      */
     boolean deleteCollection(CollectionRequest collectionDeleteRequest, User loginUser);
+
+    /**
+     * 判断当前用户是否收藏该物品
+     * @param collectionId 收藏物id
+     * @param userId 当前用户id
+     * @param type 类型id
+     * @return 是否收藏
+     */
+    boolean judgeCollection(Long collectionId, Long userId,Integer type);
 }

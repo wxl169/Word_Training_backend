@@ -83,4 +83,10 @@ private IWordService wordService;
 
     }
 
+
+    @Test
+    public void test5(){
+        System.out.println(LocalDateTime.now().getDayOfMonth() );
+    }
+
 }

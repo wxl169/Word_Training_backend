@@ -413,8 +413,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             updateWrapper.set(!this.isSameDay(LocalDate.from(user.getLastLoginTime()), LocalDate.from(LocalDateTime.now())), User::getOnlineDay, user.getOnlineDay() + 1)
                     .set(User::getLastLoginTime, LocalDateTime.now())
                     .eq(User::getId, user.getId());
-            //判断当前时间与最近登录时间是否间隔24小时
-            if (Duration.between(user.getLastLoginTime(), LocalDateTime.now()).toHours() > 24) {
+            //判断用户是否连续登录
+            if(LocalDateTime.now().getDayOfMonth() - user.getLastLoginTime().getDayOfMonth() == 1){
                 //有则修改为1
                 updateWrapper.set(User::getCoiledDay,1);
             }else{

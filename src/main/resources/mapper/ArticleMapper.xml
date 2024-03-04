@@ -22,6 +22,20 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <update id="addArticlePraiseNumber" parameterType="java.lang.Long">
+        update tb_article set praise_number = praise_number + 1 where id = #{articleId} and is_delete = 0;
+    </update>
+    <update id="deleteArticlePraiseNumber" parameterType="java.lang.Long">
+        update tb_article set praise_number = praise_number - 1  where id = #{articleId} and is_delete = 0 and praise_number > 0;
+    </update>
+
+    <update id="addArticleCollectionNumber" parameterType="java.lang.Long">
+        update tb_article set collection_number = collection_number + 1 where id = #{articleId} and is_delete = 0;
+    </update>
+
+    <update id="deleteArticleCollectionNumber" parameterType="java.lang.Long">
+        update tb_article set collection_number = collection_number - 1  where id = #{articleId} and is_delete = 0 and collection_number > 0;
+    </update>
 
     <select id="selectArticleList" resultType="org.wxl.wordTraining.model.vo.article.ArticleVO"
             parameterType="org.wxl.wordTraining.model.dto.article.ArticleListRequest">
@@ -41,7 +55,39 @@
         <if test="permissions">
             and permissions = #{permissions}
         </if>
+        and a.is_delete = 0 and u.is_delete = 0
         LIMIT ${(current - 1) * pageSize},${pageSize};
+    </select>
+
+    <select id="selectArticleAll" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO"
+            parameterType="org.wxl.wordTraining.model.dto.article.ArticleAllRequest">
+        select a.id, a.user_id,title,username,u.avatar,a.description,visit_number,praise_number,comment_number,collection_number,
+        tags,cover_image,a.create_time,permissions
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="content != null and content != '' ">
+            and (a.title like  CONCAT('%',#{content},'%') or a.content like CONCAT('%',#{content},'%')  or a.description like CONCAT('%',#{content},'%'))
+        </if>
+        and a.status = 0 and a.is_delete = 0 and u.is_delete = 0
+       ;
+    </select>
+
+    <select id="selectArticleLogin" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO">
+        select a.id, a.user_id,title,username,u.avatar,a.description,visit_number,praise_number,comment_number,collection_number,
+        tags,cover_image,a.create_time
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="articleAllRequest.content != null and articleAllRequest.content != '' ">
+            and (a.title like  CONCAT('%',#{articleAllRequest.content},'%') or a.content like CONCAT('%',#{articleAllRequest.content},'%')  or a.description like CONCAT('%',#{articleAllRequest.content},'%'))
+        </if>
+        and a.status = 0 and a.is_delete = 0 and u.is_delete = 0
+        and ( a.permissions = 0 or (a.permissions = 2 and
+           a.user_id in
+        <foreach collection="concernList" item="userId" separator="," open="(" close=")">
+            #{userId}
+        </foreach>
+        ))
+        ;
     </select>
 
 </mapper>

@@ -37,9 +37,13 @@ public interface ArticleConstant {
      * 仅关注自己的用户
      */
     int REGARD_BY_MYSELF  = 2;
+
+
+    //----------------------------------------------分页----------------------------------------
     /**
-     * 仅自己关注的用户
+     * 分页每页页数
      */
-    int MYSELF_BY_REGARD = 3;
+    int MIN_CURRENT = 6;
+
 
 }
