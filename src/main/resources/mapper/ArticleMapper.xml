@@ -44,4 +44,35 @@
         LIMIT ${(current - 1) * pageSize},${pageSize};
     </select>
 
+    <select id="selectArticleAll" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO"
+            parameterType="org.wxl.wordTraining.model.dto.article.ArticleAllRequest">
+        select a.id, a.user_id,title,username,u.avatar,a.description,visit_number,praise_number,comment_number,collection_number,
+        tags,cover_image,a.update_time,permissions
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="content != null and content != '' ">
+            and (a.title like  CONCAT('%',#{content},'%') or a.content like CONCAT('%',#{content},'%')  or a.description like CONCAT('%',#{content},'%'))
+        </if>
+        and a.status = 0
+       ;
+    </select>
+
+    <select id="selectArticleLogin" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO">
+        select a.id, a.user_id,title,username,u.avatar,a.description,visit_number,praise_number,comment_number,collection_number,
+        tags,cover_image,a.update_time
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="articleAllRequest.content != null and articleAllRequest.content != '' ">
+            and (a.title like  CONCAT('%',#{articleAllRequest.content},'%') or a.content like CONCAT('%',#{articleAllRequest.content},'%')  or a.description like CONCAT('%',#{articleAllRequest.content},'%'))
+        </if>
+        and a.status = 0
+        and ( a.permissions = 0 or (a.permissions = 2 and
+           a.user_id in
+        <foreach collection="concernList" item="userId" separator="," open="(" close=")">
+            #{userId}
+        </foreach>
+        ))
+        ;
+    </select>
+
 </mapper>

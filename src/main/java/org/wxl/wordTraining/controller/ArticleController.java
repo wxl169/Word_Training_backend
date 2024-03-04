@@ -18,6 +18,7 @@ import org.wxl.wordTraining.common.ResultUtils;
 import org.wxl.wordTraining.constant.UserConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.model.dto.article.ArticleAddRequest;
+import org.wxl.wordTraining.model.dto.article.ArticleAllRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleUpdateReviewOpinionsRequest;
 import org.wxl.wordTraining.model.entity.TbArticle;
@@ -146,5 +147,20 @@ public class ArticleController {
 
     }
 
+
+    /**
+     * 用户查询文章列表信息
+     * @param articleAllRequest 查询条件
+     * @return 文章列表信息
+     */
+    @PostMapping("/get/all")
+    @JwtToken
+    public BaseResponse<PageVO> selectArticleListAll (@RequestBody ArticleAllRequest articleAllRequest,HttpServletRequest request){
+        if (articleAllRequest.getCurrent() == null){
+            articleAllRequest.setCurrent(1);
+        }
+        PageVO pageVO = articleService.selectArticleListAll(articleAllRequest,request);
+        return ResultUtils.success(pageVO);
+    }
 
 }

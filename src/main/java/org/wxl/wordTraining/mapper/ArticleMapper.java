@@ -1,8 +1,11 @@
 package org.wxl.wordTraining.mapper;
 
+import org.apache.ibatis.annotations.Param;
+import org.wxl.wordTraining.model.dto.article.ArticleAllRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
 import org.wxl.wordTraining.model.entity.TbArticle;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.wxl.wordTraining.model.vo.article.ArticleAllVO;
 import org.wxl.wordTraining.model.vo.article.ArticleVO;
 
 import java.util.List;
@@ -22,4 +25,18 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @return 返回文章列表数据
      */
     List<ArticleVO> selectArticleList(ArticleListRequest articleListRequest);
+    /**
+     * 用户查询文章列表信息
+     * @param articleAllRequest 查询条件
+     * @return 文章列表信息
+     */
+    List<ArticleAllVO> selectArticleAll(ArticleAllRequest articleAllRequest);
+
+    /**
+     * 登录用户查询文章列表信息
+     * @param articleAllRequest 查询条件
+     * @param concernList 好友列表
+     * @return 文章列表
+     */
+    List<ArticleAllVO> selectArticleLogin(@Param("articleAllRequest") ArticleAllRequest articleAllRequest,@Param("concernList") List<Long> concernList);
 }
