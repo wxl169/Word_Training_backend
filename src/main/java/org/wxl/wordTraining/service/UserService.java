@@ -108,4 +108,20 @@ public interface UserService extends IService<User> {
      * @return 脱敏用户列表数据
      */
     PageVO getUserList(UserListRequest userListRequest);
+
+    /**
+     * 关注好友
+     * @param friendId 好友id
+     * @param loginUser 当前登录用户
+     * @return 是否成功
+     */
+    boolean addFriend(Long friendId, User loginUser);
+    /**
+     * 取关好友
+     *
+     * @param friendId 好友id
+     * @param loginUser   当前登录用户
+     * @return 是否成功
+     */
+    boolean deleteFriend(Long friendId, User loginUser);
 }

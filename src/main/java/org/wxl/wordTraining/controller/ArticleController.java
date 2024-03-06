@@ -23,6 +23,7 @@ import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleUpdateReviewOpinionsRequest;
 import org.wxl.wordTraining.model.entity.TbArticle;
 import org.wxl.wordTraining.model.vo.PageVO;
+import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
 import org.wxl.wordTraining.service.IArticleService;
 
 import javax.servlet.http.HttpServletRequest;
@@ -162,5 +163,23 @@ public class ArticleController {
         PageVO pageVO = articleService.selectArticleListAll(articleAllRequest,request);
         return ResultUtils.success(pageVO);
     }
+
+
+    /**
+     * 根据文章id查询文章详细信息
+     * @param idRequest 文章id
+     * @param request 判断是否登录
+     * @return 文章详细信息
+     */
+    @PostMapping("/get")
+    @JwtToken
+    public BaseResponse<ArticleOneVO> selectArticleOne (@RequestBody IdRequest idRequest,HttpServletRequest request){
+        if (idRequest == null || idRequest.getId() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        ArticleOneVO articleOneVO = articleService.selectArticleOne(idRequest.getId(),request);
+        return ResultUtils.success(articleOneVO);
+    }
+
 
 }

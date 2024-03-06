@@ -8,6 +8,7 @@ import org.wxl.wordTraining.model.dto.article.ArticleUpdateReviewOpinionsRequest
 import org.wxl.wordTraining.model.entity.TbArticle;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.vo.PageVO;
+import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -54,4 +55,11 @@ public interface IArticleService extends IService<TbArticle> {
      */
     PageVO selectArticleListAll(ArticleAllRequest articleAllRequest,HttpServletRequest request);
 
+    /**
+     * 根据文章id获取文章详细信息
+     * @param articleId 文章id
+     * @param request 判断是否登录
+     * @return 文章详细信息
+     */
+    ArticleOneVO selectArticleOne(Long articleId,HttpServletRequest request);
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.wxl.wordTraining.mapper.ComplainMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.wxl.wordTraining.model.entity.Complain">
+        <id column="id" property="id" />
+        <result column="complain_id" property="complainId" />
+        <result column="type" property="type" />
+        <result column="complain_content" property="complainContent" />
+        <result column="complain_user_id" property="complainUserId" />
+        <result column="is_complain_user_id" property="isComplainUserId" />
+        <result column="status" property="status" />
+        <result column="review_comment" property="reviewComment" />
+        <result column="complain_time" property="complainTime" />
+        <result column="review_time" property="reviewTime" />
+        <result column="is_delete" property="isDelete" />
+    </resultMap>
+
+</mapper>

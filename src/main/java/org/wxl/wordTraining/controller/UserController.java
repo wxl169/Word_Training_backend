@@ -5,10 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.wxl.wordTraining.annotation.AuthCheck;
 import org.wxl.wordTraining.annotation.JwtToken;
-import org.wxl.wordTraining.common.BaseResponse;
-import org.wxl.wordTraining.common.DeleteRequest;
-import org.wxl.wordTraining.common.ErrorCode;
-import org.wxl.wordTraining.common.ResultUtils;
+import org.wxl.wordTraining.common.*;
 import org.wxl.wordTraining.constant.UserConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.exception.ThrowUtils;
@@ -191,7 +188,6 @@ public class UserController {
      * @return 是否修改成功
      */
     @PostMapping("/update/all")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateByUserRequest userUpdateByUserRequest,
                                             HttpServletRequest request) {
         if (userUpdateByUserRequest == null || userUpdateByUserRequest.getId() == null) {
@@ -282,6 +278,47 @@ public class UserController {
 
     }
 
+
+    /**
+     * 关注好友
+     @param idRequest 好友id
+      * @param request 当前登录用户
+     * @return 是否成功
+     */
+    @PostMapping("/add/friend")
+    public BaseResponse addFriend(@RequestBody IdRequest idRequest,HttpServletRequest request){
+        if (idRequest== null || idRequest.getId() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean add = userService.addFriend(idRequest.getId(),loginUser);
+        if (add){
+            return ResultUtils.success(true);
+        }
+        return ResultUtils.error(ErrorCode.OPERATION_ERROR,"关注好友失败");
+    }
+
+    /**
+     * 取关好友
+     *
+     * @param idRequest 好友id
+     * @param request   当前登录用户
+     * @return 是否成功
+     */
+    @PostMapping("/delete/friend")
+    public BaseResponse deleteFriend(@RequestBody IdRequest idRequest, HttpServletRequest request){
+        if (idRequest== null || idRequest.getId() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean add = userService.deleteFriend(idRequest.getId(),loginUser);
+        if (add){
+            return ResultUtils.success(true);
+        }
+        return ResultUtils.error(ErrorCode.OPERATION_ERROR,"关注好友失败");
+    }
+
+
     // endregion
 
 //    /**
@@ -305,6 +342,7 @@ public class UserController {
 //        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
 //        return ResultUtils.success(true);
 //    }
+
 
 
 }

@@ -6,6 +6,7 @@ import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
 import org.wxl.wordTraining.model.entity.TbArticle;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.wxl.wordTraining.model.vo.article.ArticleAllVO;
+import org.wxl.wordTraining.model.vo.article.ArticleOneMapperVO;
 import org.wxl.wordTraining.model.vo.article.ArticleVO;
 
 import java.util.List;
@@ -66,4 +67,18 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @return 是否修改成功
      */
     boolean deleteArticlePraiseNumber(Long articleId);
+
+    /**
+     * 根据文章id获取文章详细信息
+     * @param articleId 文章id
+     * @return 文章详细信息
+     */
+    ArticleOneMapperVO selectArticleOne(Long articleId);
+
+    /**
+     * 文章浏览量加1
+     * @param articleId 文章id
+     * @return 是否修改成功
+     */
+    boolean addArticleVisitNumber(Long articleId);
 }

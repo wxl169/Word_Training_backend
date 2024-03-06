@@ -6,15 +6,21 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.constant.CommonConstant;
 import org.wxl.wordTraining.constant.JWTConstant;
+import org.wxl.wordTraining.constant.PraiseConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.exception.ThrowUtils;
 import org.wxl.wordTraining.mapper.UserMapper;
 import org.wxl.wordTraining.model.dto.user.UserListRequest;
+import org.wxl.wordTraining.model.entity.Praise;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.enums.UserRoleEnum;
 import org.wxl.wordTraining.model.vo.PageVO;
@@ -27,9 +33,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
@@ -54,10 +58,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserMapper userMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final Random random = new Random();
+    private final RedissonClient redissonClient;
     @Autowired
-    public UserServiceImpl(UserMapper userMapper, RedisTemplate<String,Object> redisTemplate) {
+    public UserServiceImpl(UserMapper userMapper, RedisTemplate<String,Object> redisTemplate,RedissonClient redissonClient) {
       this.userMapper = userMapper;
         this.redisTemplate = redisTemplate;
+        this.redissonClient =redissonClient;
     }
 
     /**
@@ -355,6 +361,79 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         page(page,queryWrapper);
         List<UserListVO> userListVOS = BeanCopyUtils.copyBeanList(page.getRecords(), UserListVO.class);
         return new PageVO(userListVOS,page.getTotal());
+    }
+
+    /**
+     * 关注好友
+     * @param friendId 好友id
+     * @param loginUser 当前登录用户
+     * @return 是否成功关注
+      */
+    @Override
+    public boolean addFriend(Long friendId, User loginUser) {
+        RLock userLock = redissonClient.getLock("wordTraining:user:addFriend:user:" + loginUser.getId());
+        Gson gson = new Gson();
+        try {
+            while (true){
+                boolean tryLock = userLock.tryLock(0,-1, TimeUnit.SECONDS);
+                if (tryLock){
+                    //判断当前用户是否关注该用户
+                    Set<Long> friendList = gson.fromJson(loginUser.getConcern(), new TypeToken<Set<Long>>() {
+                    }.getType());
+                    if (friendList != null && friendList.contains(friendId)){
+                        //如果已经成功关注用户
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR,"请勿重复关注该用户");
+                    }
+                    if (friendList == null){
+                        friendList = new HashSet<>();
+                    }
+                    //关注该用户
+                    friendList.add(friendId);
+                    String concern = gson.toJson(friendList);
+                    LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+                    updateWrapper.eq(User::getId,loginUser.getId())
+                            .set(User::getConcern,concern);
+                    boolean update = this.update(updateWrapper);
+                    if (!update){
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR,"关注该用户失败");
+                    }
+                    return true;
+                }
+            }
+        } catch (InterruptedException e) {
+            log.error("doCollection error", e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"关注失败");
+        } finally {
+            userLock.unlock();
+        }
+    }
+
+    /**
+     * 取关好友
+     * @param friendId 好友id
+     * @param loginUser   当前登录用户
+     * @return 是否成功
+     */
+    @Override
+    public boolean deleteFriend(Long friendId, User loginUser) {
+        Gson gson = new Gson();
+        //判断当前用户是否存在该好友
+        Set<Long> friendList = gson.fromJson(loginUser.getConcern(), new TypeToken<Set<Long>>() {
+        }.getType());
+        if (friendList != null  && friendList.contains(friendId)){
+            //取关该用户
+            friendList.remove(friendId);
+            String concern = gson.toJson(friendList);
+            LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+            updateWrapper.eq(User::getId,loginUser.getId())
+                    .set(User::getConcern,concern);
+            boolean update = this.update(updateWrapper);
+            if (!update){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"取关该用户失败");
+            }
+            return true;
+        }
+        return false;
     }
 
 

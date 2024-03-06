@@ -7,6 +7,7 @@ import com.google.gson.reflect.TypeToken;
 import com.sun.org.apache.bcel.internal.generic.I2F;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.common.IdRequest;
 import org.wxl.wordTraining.constant.ArticleConstant;
@@ -21,10 +22,7 @@ import org.wxl.wordTraining.model.entity.TbArticle;
 import org.wxl.wordTraining.mapper.ArticleMapper;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.vo.PageVO;
-import org.wxl.wordTraining.model.vo.article.ArticleAllVO;
-import org.wxl.wordTraining.model.vo.article.ArticleListAllVO;
-import org.wxl.wordTraining.model.vo.article.ArticleListVO;
-import org.wxl.wordTraining.model.vo.article.ArticleVO;
+import org.wxl.wordTraining.model.vo.article.*;
 import org.wxl.wordTraining.service.IArticleService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
@@ -38,6 +36,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -259,6 +258,54 @@ private final ArticleMapper articleMapper;
             }).collect(Collectors.toList());
         }
         return new PageVO(articleListVOList, (long) articleListVOList.size());
+    }
+
+    /**
+     * 根据文章id获取文章详细信息
+     * @param articleId 文章id
+     * @return 文章详细信息
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ArticleOneVO selectArticleOne(Long articleId,HttpServletRequest request) {
+        ArticleOneMapperVO articleOneMapperVO = articleMapper.selectArticleOne(articleId);
+        ArticleOneVO articleOneVO = BeanCopyUtils.copyBean(articleOneMapperVO, ArticleOneVO.class);
+        List<String> tagList = gson.fromJson(articleOneMapperVO.getTags(), new TypeToken<List<String>>() {
+        }.getType());
+        articleOneVO.setTags(tagList);
+
+        //TODO：获取发表用户的勋章信息
+
+        //判断当前用户是否登录
+        User loginUserPermitNull = userService.getLoginUserPermitNull(request);
+        if (loginUserPermitNull != null){
+            //判断当前用户是否收藏
+            boolean collection = collectionService.judgeCollection(articleId, loginUserPermitNull.getId(), CollectionConstant.ARTICLE_TYPE);
+            if (collection){
+                articleOneVO.setIsCollection(1);
+            }
+            //判断当前用户是否点赞
+            boolean praise = praiseService.judgePraise(articleId,loginUserPermitNull.getId(), PraiseConstant.ARTICLE_TYPE);
+            if (praise){
+                articleOneVO.setIsPraise(1);
+            }
+            //判断当前用户是否关注
+            String concern = loginUserPermitNull.getConcern();
+            if (StringUtils.isNotBlank(concern)){
+                Set<Long> concernSet = gson.fromJson(concern, new TypeToken<Set<Long>>() {
+                }.getType());
+                if (concernSet != null && !concernSet.isEmpty() && (concernSet.contains(articleOneVO.getUserId()))){
+                        articleOneVO.setIsAddUser(1);
+                }
+            }
+        }
+
+        //文章浏览量 + 1
+        boolean updateVisitNumber = articleMapper.addArticleVisitNumber(articleId);
+        if (!updateVisitNumber){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"浏览量自增失败");
+        }
+        return articleOneVO;
     }
 
 

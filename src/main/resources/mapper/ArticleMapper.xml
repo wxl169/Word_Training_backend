@@ -22,8 +22,11 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <update id="addArticleVisitNumber" parameterType="java.lang.Long">
+            update tb_article set visit_number = visit_number + 1 where id=#{articleId} and is_delete= 0;
+    </update>
     <update id="addArticlePraiseNumber" parameterType="java.lang.Long">
-        update tb_article set praise_number = praise_number + 1 where id = #{articleId} and is_delete = 0;
+        update tb_article set praise_number = praise_number + 1  where id = #{articleId} and is_delete = 0;
     </update>
     <update id="deleteArticlePraiseNumber" parameterType="java.lang.Long">
         update tb_article set praise_number = praise_number - 1  where id = #{articleId} and is_delete = 0 and praise_number > 0;
@@ -40,7 +43,7 @@
     <select id="selectArticleList" resultType="org.wxl.wordTraining.model.vo.article.ArticleVO"
             parameterType="org.wxl.wordTraining.model.dto.article.ArticleListRequest">
         select user_id,title,content,a.id,user_account,description,visit_number,praise_number,comment_number,collection_number,
-               tags,cover_image,status,permissions,review_opinions,a.create_time,a.update_time
+               a.tags,cover_image,status,permissions,review_opinions,a.create_time,a.update_time
         from tb_user as u , tb_article as a
         where a.user_id = u.id
         <if test="userAccount != null and userAccount != ''">
@@ -62,7 +65,7 @@
     <select id="selectArticleAll" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO"
             parameterType="org.wxl.wordTraining.model.dto.article.ArticleAllRequest">
         select a.id, a.user_id,title,username,u.avatar,a.description,visit_number,praise_number,comment_number,collection_number,
-        tags,cover_image,a.create_time,permissions
+        a.tags,cover_image,a.create_time,permissions
         from tb_user as u , tb_article as a
         where a.user_id = u.id
         <if test="content != null and content != '' ">
@@ -74,7 +77,7 @@
 
     <select id="selectArticleLogin" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO">
         select a.id, a.user_id,title,username,u.avatar,a.description,visit_number,praise_number,comment_number,collection_number,
-        tags,cover_image,a.create_time
+        a.tags,cover_image,a.create_time
         from tb_user as u , tb_article as a
         where a.user_id = u.id
         <if test="articleAllRequest.content != null and articleAllRequest.content != '' ">
@@ -88,6 +91,14 @@
         </foreach>
         ))
         ;
+    </select>
+    <select id="selectArticleOne" resultType="org.wxl.wordTraining.model.vo.article.ArticleOneMapperVO"
+            parameterType="java.lang.Long">
+        select a.id,a.user_id,title,username,u.avatar,a.description,content,visit_number,praise_number,comment_number,collection_number,
+               a.tags,cover_image,a.create_time
+        from tb_user as u,tb_article as a
+        where a.user_id = u.id
+        and a.is_delete = 0  and u.is_delete = 0 and a.id = #{articleId};
     </select>
 
 </mapper>
