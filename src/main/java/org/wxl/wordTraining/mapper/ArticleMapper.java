@@ -81,4 +81,11 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @return 是否修改成功
      */
     boolean addArticleVisitNumber(Long articleId);
+
+    /**
+     * 文章评论量加1
+     * @param articleId 文章id
+     * @return 是否成功
+     */
+    boolean addCommentNumber(Long articleId);
 }

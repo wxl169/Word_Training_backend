@@ -22,6 +22,9 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <update id="addCommentNumber" parameterType="java.lang.Long">
+        update tb_article set comment_number = comment_number + 1 where id=#{articleId} and is_delete= 0;
+    </update>
     <update id="addArticleVisitNumber" parameterType="java.lang.Long">
             update tb_article set visit_number = visit_number + 1 where id=#{articleId} and is_delete= 0;
     </update>
