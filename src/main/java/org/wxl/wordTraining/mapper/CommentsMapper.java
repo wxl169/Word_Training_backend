@@ -30,4 +30,25 @@ public interface CommentsMapper extends BaseMapper<Comments> {
      * @return 子评论列表信息
      */
     List<CommentListVO> getCommentChildList(@Param("parentId") Long parentId,@Param("topId") Long topId);
+
+    /**
+     * 修改评论点赞数
+     * @param commentId 评论id
+     * @return 是否修改成功
+     */
+    boolean addCommentPraiseNumber(Long commentId);
+
+    /**
+     * 减少评论点赞数
+     * @param commentId 评论id
+     * @return 是否修改成功
+     */
+    boolean deleteCommentPraiseNumber(Long commentId);
+
+    /**
+     * 删除评论及其子评论
+     * @param commentId 评论id
+     * @return 是否删除成功
+     */
+    boolean deleteComment(Long commentId);
 }

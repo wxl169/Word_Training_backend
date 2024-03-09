@@ -15,8 +15,10 @@ import org.wxl.wordTraining.common.IdRequest;
 import org.wxl.wordTraining.common.ResultUtils;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.model.dto.comment.CommentAddRequest;
+import org.wxl.wordTraining.model.dto.comment.CommentDeleteRequest;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.vo.comment.CommentListVO;
+import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.service.ICommentsService;
 import org.wxl.wordTraining.service.UserService;
 
@@ -73,12 +75,37 @@ public class CommentsController {
      */
     @PostMapping("/get/id")
     @JwtToken
-    public BaseResponse<List<CommentListVO>> getCommentListAll(@RequestBody IdRequest idRequest){
+    public BaseResponse<List<CommentListVO>> getCommentListAll(@RequestBody IdRequest idRequest,HttpServletRequest request){
         if (idRequest == null || idRequest.getId() <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请选择文章");
         }
-        List<CommentListVO> commentListVOS = commentsService.getCommentListAll(idRequest.getId());
+        List<CommentListVO> commentListVOS = commentsService.getCommentListAll(idRequest.getId(),request);
         return ResultUtils.success(commentListVOS);
     }
 
+
+    /**
+     * 删除评论及其子评论
+     * @param commentDeleteRequest 评论id
+     * @param request 获取当前用户信息
+     * @return 是否删除成功
+     */
+    @PostMapping("/delete")
+    public BaseResponse deleteComment(@RequestBody CommentDeleteRequest commentDeleteRequest,HttpServletRequest request){
+        if (commentDeleteRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请选中删除哪条评论");
+        }
+        if (commentDeleteRequest.getCommentId() == null || commentDeleteRequest.getCommentId() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请选中删除哪条评论");
+        }
+        if (commentDeleteRequest.getUserId() == null || commentDeleteRequest.getUserId() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请选中删除哪条评论");
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean delete = commentsService.deleteComment(commentDeleteRequest,loginUser);
+        if (delete){
+            return ResultUtils.success(true);
+        }
+        return ResultUtils.error(ErrorCode.OPERATION_ERROR,"删除评论失败");
+    }
 }

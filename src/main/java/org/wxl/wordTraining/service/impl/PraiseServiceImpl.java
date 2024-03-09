@@ -10,6 +10,7 @@ import org.wxl.wordTraining.constant.PraiseConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.mapper.ArticleMapper;
 import org.wxl.wordTraining.mapper.CollectionMapper;
+import org.wxl.wordTraining.mapper.CommentsMapper;
 import org.wxl.wordTraining.model.dto.praise.PraiseAddRequest;
 import org.wxl.wordTraining.model.dto.praise.PraiseDeleteRequest;
 import org.wxl.wordTraining.model.entity.Praise;
@@ -35,11 +36,13 @@ public class PraiseServiceImpl extends ServiceImpl<PraiseMapper, Praise> impleme
     private final PraiseMapper praiseMapper;
     private final RedissonClient redissonClient;
     private final ArticleMapper articleMapper;
+    private final CommentsMapper commentsMapper;
     @Autowired
-    public PraiseServiceImpl(PraiseMapper praiseMapper,RedissonClient redissonClient,ArticleMapper articleMapper){
+    public PraiseServiceImpl(PraiseMapper praiseMapper,RedissonClient redissonClient,ArticleMapper articleMapper,CommentsMapper commentsMapper){
         this.praiseMapper = praiseMapper;
         this.redissonClient = redissonClient;
         this.articleMapper = articleMapper;
+        this.commentsMapper = commentsMapper;
     }
     /**
      * 判断当前用户是否点赞该物品
@@ -102,11 +105,16 @@ public class PraiseServiceImpl extends ServiceImpl<PraiseMapper, Praise> impleme
                         add = this.save(praise1);
                     }
                     if (add){
-                        //修改收藏数量
+                        //修改点赞数量
                         if (praiseAddRequest.getType().equals(PraiseConstant.ARTICLE_TYPE)){
                             boolean update = articleMapper.addArticlePraiseNumber(praiseAddRequest.getId());
                             if (!update){
                                 throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章点赞量失败");
+                            }
+                        }else if(praiseAddRequest.getType().equals(PraiseConstant.COMMENT_TYPE)){
+                            boolean update = commentsMapper.addCommentPraiseNumber(praiseAddRequest.getId());
+                            if (!update){
+                                throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改评论点赞量失败");
                             }
                         }
                         return true;
@@ -143,10 +151,15 @@ public class PraiseServiceImpl extends ServiceImpl<PraiseMapper, Praise> impleme
             boolean b = this.removeById(praise.getId());
             if (b){
                 //文章收藏量减1
-                if (praiseDeleteRequest.getType().equals(CollectionConstant.ARTICLE_TYPE)){
+                if (praiseDeleteRequest.getType().equals(PraiseConstant.ARTICLE_TYPE)){
                     boolean update = articleMapper.deleteArticlePraiseNumber(praiseDeleteRequest.getId());
                     if (!update){
-                        throw new BusinessException(ErrorCode.OPERATION_ERROR,"减少文章点赞量失败");
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR,"减少评论点赞量失败");
+                    }
+                }else if (praiseDeleteRequest.getType().equals(PraiseConstant.COMMENT_TYPE)){
+                    boolean update = commentsMapper.deleteCommentPraiseNumber(praiseDeleteRequest.getId());
+                    if (!update){
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR,"减少评论点赞量失败");
                     }
                 }
                 return true;

@@ -38,8 +38,12 @@ public class CommentListVO implements Serializable {
 
     @ApiModelProperty(value = "是否置顶(0:不置顶，1：置顶)")
     private Integer isSticky;
+    @ApiModelProperty(value = "文章Id")
+    private Long articleId;
     @ApiModelProperty(value = "点赞数")
     private Long praiseNumber;
+    @ApiModelProperty(value = "是否点赞")
+    private Integer isPraise;
     @ApiModelProperty("子评论")
     private List<CommentListVO> commentChildList;
     @ApiModelProperty("是否显示回复框")
