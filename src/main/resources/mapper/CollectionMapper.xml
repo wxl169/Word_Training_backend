@@ -23,6 +23,29 @@
             collection_id = #{collectionAddRequest.id}
             and `type` = #{collectionAddRequest.type}
             and user_id = #{loginUser.id}
+            and is_delete = 0;
+    </select>
+    <select id="getCollectionByUserId" resultType="org.wxl.wordTraining.model.vo.collection.CollectionArticleVO">
+        select tc.collection_id,ta.title,1 as is_Collection
+        from
+            tb_collection as tc,tb_article as ta
+        where
+            tc.collection_id = ta.id and
+            tc.user_id = #{loginUser.id} and tc.type = #{collectionGetRequest.type} and tc.is_delete = 0 and ta.is_delete = 0
+            order by tc.collection_time desc
+            LIMIT ${(collectionGetRequest.current - 1) * collectionGetRequest.pageSize},${collectionGetRequest.pageSize};
+
+    </select>
+    <select id="getCollectionWordByUserId"
+            resultType="org.wxl.wordTraining.model.vo.collection.CollectionWordVO">
+        select tc.collection_id,tw.word,tw.translation as translation_json,tw.pronounce_english,tw.pronounce_america,1 as is_Collection
+        from
+            tb_collection as tc,tb_word as tw
+        where
+            tc.collection_id = tw.id and
+            tc.user_id = #{loginUser.id} and tc.type = #{collectionGetRequest.type} and tc.is_delete = 0 and tw.is_delete = 0
+            order by tc.collection_time desc
+            LIMIT ${(collectionGetRequest.current - 1) * collectionGetRequest.pageSize},${collectionGetRequest.pageSize};
     </select>
 
 </mapper>

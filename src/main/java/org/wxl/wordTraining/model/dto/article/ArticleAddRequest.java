@@ -1,5 +1,6 @@
 package org.wxl.wordTraining.model.dto.article;
 
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
@@ -29,5 +30,8 @@ public class ArticleAddRequest implements Serializable {
 
     @ApiModelProperty(value = "权限（0：公开，1：私有，2：仅关注自己的用户，3：仅自己关注的用户）")
     private Integer permissions;
+
+    @ApiModelProperty(value = "状态(4:草稿)")
+    private Integer status;
 
 }

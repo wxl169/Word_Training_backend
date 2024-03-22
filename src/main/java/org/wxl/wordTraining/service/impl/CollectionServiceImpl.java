@@ -1,28 +1,34 @@
 package org.wxl.wordTraining.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.annotation.Transactional;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.constant.CollectionConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.mapper.ArticleMapper;
+import org.wxl.wordTraining.model.dto.collection.CollectionGetRequest;
 import org.wxl.wordTraining.model.dto.collection.CollectionRequest;
-import org.wxl.wordTraining.model.entity.TbArticle;
 import org.wxl.wordTraining.model.entity.TbCollection;
 import org.wxl.wordTraining.mapper.CollectionMapper;
 import org.wxl.wordTraining.model.entity.User;
-import org.wxl.wordTraining.service.IArticleService;
+import org.wxl.wordTraining.model.entity.Word;
+import org.wxl.wordTraining.model.vo.PageVO;
+import org.wxl.wordTraining.model.vo.collection.CollectionArticleVO;
+import org.wxl.wordTraining.model.vo.collection.CollectionWordVO;
 import org.wxl.wordTraining.service.ICollectionService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -160,6 +166,41 @@ public CollectionServiceImpl(CollectionMapper collectionMapper,RedissonClient re
                 .eq(TbCollection::getUserId,userId);
         TbCollection collection = this.getOne(queryWrapper);
         return collection != null;
+    }
+
+    /**
+     * 获取当前登录用户收藏的内容信息
+     * @param collectionGetRequest 用户选择展示的内容
+     * @param loginUser 获取当前登陆用户信息
+     * @return 内容信息
+     */
+    @Override
+    public PageVO getCollectionByUserId(CollectionGetRequest collectionGetRequest, User loginUser) {
+        PageVO pageVO = new PageVO();
+        Gson gson = new Gson();
+        LambdaQueryWrapper<TbCollection> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(TbCollection::getUserId,loginUser.getId());
+        //返回文章收藏信息
+        if (collectionGetRequest.getType() == 0){
+            List<CollectionArticleVO> collectionGetVOList = collectionMapper.getCollectionByUserId(collectionGetRequest,loginUser);
+            pageVO.setRows(collectionGetVOList);
+            queryWrapper.eq(TbCollection::getType,CollectionConstant.ARTICLE_TYPE);
+        }else{
+        //返回单词收藏信息
+            List<CollectionWordVO> collectionGetVOList = collectionMapper.getCollectionWordByUserId(collectionGetRequest,loginUser);
+            collectionGetVOList = collectionGetVOList.stream().peek(collectionWordVO -> {
+                Map<String, String> translationMap = gson.fromJson(collectionWordVO.getTranslationJson(), new TypeToken<Map<String, String>>() {}.getType());
+                List<String> translationList = translationMap.entrySet().stream()
+                        .map(entry -> entry.getKey() + ":" + entry.getValue())
+                        .collect(Collectors.toList());
+                collectionWordVO.setTranslation(translationList);
+            }).collect(Collectors.toList());
+            pageVO.setRows(collectionGetVOList);
+            queryWrapper.eq(TbCollection::getType,CollectionConstant.WORD_TYPE);
+        }
+        long count = this.count(queryWrapper);
+        pageVO.setTotal(count);
+        return pageVO;
     }
 
 

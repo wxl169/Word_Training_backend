@@ -95,14 +95,14 @@ public class WordServiceImpl extends ServiceImpl<WordMapper, Word> implements IW
                 .select(Word::getId, Word::getWord, Word::getTranslation, Word::getType, Word::getImage, Word::getExample,
                         Word::getPronounceEnglish, Word::getPronounceAmerica, Word::getSynonym, Word::getAntonym, Word::getExchange)
                 .like(StringUtils.isNotBlank(wordListRequest.getTranslation()), Word::getTranslation, wordListRequest.getTranslation());
-        Page<Word> page = new Page<>(current, pageSize);
-        page(page, queryWrapper);
         PageVO pageVO = new PageVO();
+        List<WordListVO> wordListVOS;
         //如果根据类型查看单词数据
-        if (wordListRequest.getType() != null && wordListRequest.getType().size() > 0){
+        if (wordListRequest.getType() != null && !wordListRequest.getType().isEmpty()){
+            List<Word> wordList = this.list(queryWrapper);
             //获取单词列表
-            AtomicReference<Long> total = new AtomicReference<>(page.getTotal());
-            List<Word> wordList = page.getRecords().stream().filter(word -> {
+            AtomicReference<Long> total = new AtomicReference<>((long) wordList.size());
+            wordList = wordList.stream().filter(word -> {
                 //获取每个单词的类型
                 String type = word.getType();
                 List<String> typeListAll = gson.fromJson(type, new TypeToken<List<String>>() {
@@ -114,11 +114,16 @@ public class WordServiceImpl extends ServiceImpl<WordMapper, Word> implements IW
                 total.getAndSet(total.get() - 1);
                 return false;
             }).collect(Collectors.toList());
-            List<WordListVO> wordListVOS = getWordListVO(wordList);
+            wordListVOS = getWordListVO(wordList);
+            wordListVOS = wordListVOS.stream().skip((wordListRequest.getCurrent() - 1) * wordListRequest.getPageSize())
+                    .limit(wordListRequest.getPageSize())
+                    .collect(Collectors.toList());
             pageVO.setRows(wordListVOS);
             pageVO.setTotal(total.get());
         } else {
-            List<WordListVO> wordListVOS = getWordListVO(page.getRecords());
+            Page<Word> page = new Page<>(current, pageSize);
+            page(page, queryWrapper);
+            wordListVOS = getWordListVO(page.getRecords());
             pageVO.setRows(wordListVOS);
             pageVO.setTotal(page.getTotal());
         }
@@ -344,14 +349,17 @@ public class WordServiceImpl extends ServiceImpl<WordMapper, Word> implements IW
         queryWrapper.like(StringUtils.isNotBlank(wordListRequest.getWord()), Word::getWord, wordListRequest.getWord())
                 .select(Word::getId, Word::getWord, Word::getTranslation, Word::getType,Word::getPronounceEnglish,Word::getPronounceAmerica)
                 .like(StringUtils.isNotBlank(wordListRequest.getTranslation()), Word::getTranslation, wordListRequest.getTranslation());
-        Page<Word> page = new Page<>(current, pageSize);
-        page(page, queryWrapper);
-        PageVO pageVO = new PageVO();
+        //需要返回的单词类型信息
         List<WordBankListVO> wordBankListVOS;
+        PageVO pageVO = new PageVO();
         //如果根据类型查看单词数据
-        if (wordListRequest.getType() != null && wordListRequest.getType().size() > 0) {
-            AtomicReference<Long> total = new AtomicReference<>(page.getTotal());
-            List<Word> wordList = page.getRecords().stream().filter(word -> {
+        if (wordListRequest.getType() != null && !wordListRequest.getType().isEmpty()) {
+            //查询符合条件的所有单词数据
+            List<Word> wordList = this.list(queryWrapper);
+            //统计当前数据条数
+            AtomicReference<Integer> total = new AtomicReference<>(wordList.size());
+            //筛选出符合标签的单词数据
+            wordList = wordList.stream().filter(word -> {
                 //获取每个单词的类型
                 String type = word.getType();
                 List<String> typeListAll = gson.fromJson(type, new TypeToken<List<String>>() {
@@ -364,11 +372,17 @@ public class WordServiceImpl extends ServiceImpl<WordMapper, Word> implements IW
                 return false;
             }).collect(Collectors.toList());
             wordBankListVOS = this.convertToWordBankVOList(wordList);
-            pageVO.setTotal(total.get());
+            wordBankListVOS = wordBankListVOS.stream().skip((wordListRequest.getCurrent() - 1) * wordListRequest.getPageSize())
+                    .limit(wordListRequest.getPageSize())
+                    .collect(Collectors.toList());
+            pageVO.setTotal(Long.valueOf(total.get()));
         } else {
+            Page<Word> page = new Page<>(current, pageSize);
+            page(page, queryWrapper);
             wordBankListVOS = this.convertToWordBankVOList(page.getRecords());
             pageVO.setTotal(page.getTotal());
         }
+
         //首先判断当前用户是否登录
         User loginUserPermitNull = userService.getLoginUserPermitNull(request);
         //如果当前用户没有登录则直接返回
@@ -392,7 +406,6 @@ public class WordServiceImpl extends ServiceImpl<WordMapper, Word> implements IW
         pageVO.setRows(wordBankListVOS);
         return pageVO;
     }
-
 
     /**
      * 将 Word对象转换为WordListVO对象

@@ -46,13 +46,13 @@ public class TbArticle implements Serializable {
     private Long visitNumber;
 
     @ApiModelProperty(value = "点赞数")
-    private Long praiseNumber;
+    private Integer praiseNumber;
 
     @ApiModelProperty(value = "评论数")
-    private Long commentNumber;
+    private Integer commentNumber;
 
     @ApiModelProperty(value = "收藏数")
-    private Long collectionNumber;
+    private Integer collectionNumber;
 
     @ApiModelProperty(value = "标签")
     private String tags;

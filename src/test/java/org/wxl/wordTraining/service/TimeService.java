@@ -20,18 +20,19 @@ import java.util.Map;
 public class TimeService {
 @Resource
 private IWordService wordService;
-    @Test
-    public void test1(){
-        LocalDateTime a = LocalDateTime.of(2024, 1, 31, 12, 00);
-        LocalDateTime b = LocalDateTime.now();
-        System.out.println(isSameDay(LocalDate.now(), LocalDate.from(a)));
-    }
-
 
     public boolean isSameDay(LocalDate date1, LocalDate date2) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         return date1.format(formatter).equals(date2.format(formatter));
     }
+
+    @Test
+    public void test1(){
+        LocalDateTime a = LocalDateTime.of(2024, 3, 21, 24, 00);
+        LocalDateTime b = LocalDateTime.now();
+        System.out.println(isSameDay(LocalDate.now(), LocalDate.from(a)));
+    }
+
 
 
 

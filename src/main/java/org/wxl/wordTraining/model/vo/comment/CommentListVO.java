@@ -41,7 +41,7 @@ public class CommentListVO implements Serializable {
     @ApiModelProperty(value = "文章Id")
     private Long articleId;
     @ApiModelProperty(value = "点赞数")
-    private Long praiseNumber;
+    private Integer praiseNumber;
     @ApiModelProperty(value = "是否点赞")
     private Integer isPraise;
     @ApiModelProperty("子评论")

@@ -38,18 +38,18 @@ public class ArticleListAllVO implements Serializable {
     private Long visitNumber;
 
     @ApiModelProperty(value = "点赞数")
-    private Long praiseNumber;
+    private Integer praiseNumber;
     @ApiModelProperty(value = "是否点赞 0:未点赞，1：已点赞")
     private Integer isPraise;
 
     @ApiModelProperty(value = "收藏数")
-    private Long collectionNumber;
+    private Integer collectionNumber;
 
     @ApiModelProperty(value = "是否收藏 0:未收藏，1：已收藏")
     private Integer isCollection;
 
     @ApiModelProperty(value = "评论数")
-    private Long commentNumber;
+    private Integer commentNumber;
 
     @ApiModelProperty(value = "标签")
     private List<String> tags;

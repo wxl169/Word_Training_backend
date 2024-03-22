@@ -37,7 +37,14 @@ public interface IArticleService extends IService<TbArticle> {
     PageVO selectArticleList(ArticleListRequest articleListRequest);
 
     /**
-     * 修改文章的状态
+     * 文章审核通过
+     * @param idRequest 当前文章id
+     * @return 是否修改成功
+     */
+    boolean updateArticleStatusPass(IdRequest idRequest);
+
+    /**
+     * 禁用/解禁文章的状态
      * @param idRequest 当前文章id
      * @return 是否修改成功
      */
@@ -62,4 +69,5 @@ public interface IArticleService extends IService<TbArticle> {
      * @return 文章详细信息
      */
     ArticleOneVO selectArticleOne(Long articleId,HttpServletRequest request);
+
 }

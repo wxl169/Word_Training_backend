@@ -1,9 +1,11 @@
 package org.wxl.wordTraining.service;
 
+import org.wxl.wordTraining.model.dto.collection.CollectionGetRequest;
 import org.wxl.wordTraining.model.dto.collection.CollectionRequest;
 import org.wxl.wordTraining.model.entity.TbCollection;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.entity.User;
+import org.wxl.wordTraining.model.vo.PageVO;
 
 /**
  * <p>
@@ -37,4 +39,12 @@ public interface ICollectionService extends IService<TbCollection> {
      * @return 是否收藏
      */
     boolean judgeCollection(Long collectionId, Long userId,Integer type);
+
+    /**
+     * 获取当前登录用户收藏的内容信息
+     * @param collectionGetRequest 用户选择展示的内容
+     * @param loginUser 获取当前登陆用户信息
+     * @return 内容信息
+     */
+    PageVO getCollectionByUserId(CollectionGetRequest collectionGetRequest, User loginUser);
 }

@@ -159,7 +159,7 @@ public class WordController {
     }
 
     /**
-     * 根据单词名获取单词信息
+     * 根据单词id获取单词信息
      * @param idRequest 单词名
      * @return 是否修改成功
      */

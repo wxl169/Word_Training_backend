@@ -29,11 +29,11 @@ public class ArticleOneVO implements Serializable {
     @ApiModelProperty("浏览量")
     private Long visitNumber;
     @ApiModelProperty("点赞数")
-    private Long praiseNumber;
+    private Integer praiseNumber;
     @ApiModelProperty("评论数")
-    private Long commentNumber;
+    private Integer commentNumber;
     @ApiModelProperty("收藏量")
-    private Long collectionNumber;
+    private Integer collectionNumber;
     @ApiModelProperty("标签")
     private List<String> tags;
     @ApiModelProperty("封面")

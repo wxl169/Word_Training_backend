@@ -57,7 +57,7 @@ public class Comments implements Serializable {
     @ApiModelProperty(value = "是否置顶(0:不置顶，1：置顶)")
     private Integer isSticky;
     @ApiModelProperty(value = "点赞数")
-    private Long praiseNumber;
+    private Integer praiseNumber;
 
     @ApiModelProperty(value = "审核意见")
     private String reviewOpinions;

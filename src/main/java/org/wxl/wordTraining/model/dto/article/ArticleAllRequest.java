@@ -13,6 +13,7 @@ import java.util.List;
 public class ArticleAllRequest implements Serializable {
     private static final long serialVersionUID = 6019853772644680396L;
     private String content;
+    private Integer type;
     private List<String> tagName;
     private Integer current;
 

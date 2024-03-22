@@ -33,6 +33,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -120,8 +121,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setAvatar(UserConstant.DEFAULT_AVATAR);
             user.setRole(UserConstant.DEFAULT_ROLE);
             user.setPointNumber(0L);
-            user.setCoiledDay(0L);
-            user.setOnlineDay(0L);
+            user.setCoiledDay(0);
+            user.setOnlineDay(0);
             user.setCreateTime(LocalDateTime.now());
             user.setUpdateTime(LocalDateTime.now());
             user.setIsDelete(0);
@@ -477,28 +478,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     private User addLoginTime(User user) {
         LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
-        if (user.getLastLoginTime() == null && user.getOnlineDay() == 0){
+        if (user.getLastLoginTime() == null){
             updateWrapper.set(User::getLastLoginTime,LocalDateTime.now())
                     .set(User::getCoiledDay,1)
                     .set(User::getOnlineDay,1)
                     .eq(User::getId,user.getId());
-        }else if(user.getLastLoginTime() == null && user.getOnlineDay() != 0){
-            updateWrapper.set(User::getLastLoginTime,LocalDateTime.now())
-                    .set(User::getCoiledDay,1)
-                    .set(User::getOnlineDay,user.getOnlineDay() + 1)
-                    .eq(User::getId,user.getId());
         } else {
+            //判断是否为同一天
+            boolean sameDay = this.isSameDay(LocalDate.from(user.getLastLoginTime()), LocalDate.from(LocalDateTime.now()));
             //记录当前登录用户最近登录时间
-            updateWrapper.set(!this.isSameDay(LocalDate.from(user.getLastLoginTime()), LocalDate.from(LocalDateTime.now())), User::getOnlineDay, user.getOnlineDay() + 1)
+            updateWrapper.set(!sameDay, User::getOnlineDay, user.getOnlineDay() + 1)
                     .set(User::getLastLoginTime, LocalDateTime.now())
                     .eq(User::getId, user.getId());
             //判断用户是否连续登录
-            if(LocalDateTime.now().getDayOfMonth() - user.getLastLoginTime().getDayOfMonth() == 1){
-                //有则修改为1
-                updateWrapper.set(User::getCoiledDay,1);
-            }else{
-                //没有则加1
-                updateWrapper.set(!this.isSameDay(LocalDate.from(user.getLastLoginTime()), LocalDate.from(LocalDateTime.now())),User::getCoiledDay,user.getCoiledDay() + 1);
+            LocalDate lastLoginDate = user.getLastLoginTime().toLocalDate();
+            LocalDate currentDate = LocalDate.now();
+            long daysBetween = ChronoUnit.DAYS.between(lastLoginDate, currentDate);
+            if (daysBetween == 1) {
+                // 间隔一天，修改为 1
+                log.info("连续登录天数{}",(user.getCoiledDay() + 1));
+                updateWrapper.set(User::getCoiledDay, (user.getCoiledDay() + 1));
+            } else if (daysBetween > 1) {
+                // 间隔多天，累加连续登录天数
+                updateWrapper.set(!sameDay,User::getCoiledDay,1);
             }
         }
         boolean update = this.update(updateWrapper);

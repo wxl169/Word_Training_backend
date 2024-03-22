@@ -11,18 +11,22 @@ public interface ArticleConstant {
      */
     int NORMAL_RELEASE = 0;
     /**
+     * 审核中
+     */
+    int  PROCESS = 1;
+    /**
      * 整改中
      */
-    int RECTIFICATION = 1;
+    int RECTIFICATION = 2;
 
     /**
-     * 整改完
+     * 草稿
      */
-    int RECTIFICATION_END = 2;
+    int DRAFT = 3;
     /**
      * 已封禁
      */
-    int BAN = 3;
+    int BAN = 4;
 
     //  --------------------------------------------------  权限 -----------------------------
     /**
@@ -43,7 +47,25 @@ public interface ArticleConstant {
     /**
      * 分页每页页数
      */
-    int MIN_CURRENT = 6;
+    int MIN_CURRENT = 5;
 
+
+    //---------------------------------------------文章状态--------------------------------------
+    /**
+     * 推荐
+     */
+    int RECOMMEND = 0;
+
+    /**
+     * 最新
+     */
+    int UP_TO_DATE = 1;
+
+    /**
+     * 最热
+     */
+    int HOTTEST = 2;
+
+    String CONTENT = "<p><br></p>";
 
 }

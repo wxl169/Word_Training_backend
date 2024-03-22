@@ -88,4 +88,25 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @return 是否成功
      */
     boolean addCommentNumber(Long articleId);
+
+    /**
+     * 文章审核通过
+     * @param articleId 文章id
+     * @return 是否修改成功
+     */
+    boolean updateArticleStatusPass(Long articleId);
+
+    /**
+     *  符合条件的文章信息条数
+     * @param articleListRequest 筛选条件
+     * @return 条数
+     */
+    int getArticleCount(ArticleListRequest articleListRequest);
+
+    /**
+     * 查看所有符合条件的文章信息列表
+     * @param articleListRequest 筛选条件
+     * @return 返回文章信息
+     */
+    List<ArticleVO> selectArticleListAll(ArticleListRequest articleListRequest);
 }

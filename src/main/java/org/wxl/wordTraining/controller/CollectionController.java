@@ -12,9 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.wxl.wordTraining.common.BaseResponse;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.common.ResultUtils;
+import org.wxl.wordTraining.constant.CollectionConstant;
 import org.wxl.wordTraining.exception.BusinessException;
+import org.wxl.wordTraining.model.dto.collection.CollectionGetRequest;
 import org.wxl.wordTraining.model.dto.collection.CollectionRequest;
 import org.wxl.wordTraining.model.entity.User;
+import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.service.ICollectionService;
 import org.wxl.wordTraining.service.UserService;
 
@@ -81,6 +84,31 @@ public class CollectionController {
         //获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(collectionService.deleteCollection(collectionDeleteRequest,loginUser));
+    }
+
+    /**
+     * 获取当前登录用户收藏的内容信息
+     * @param collectionGetRequest 用户选择展示的内容
+     * @param httpServletRequest 获取当前登陆用户信息
+     * @return 内容信息
+     */
+    @PostMapping("/get")
+    public BaseResponse<PageVO> getCollecionByUserId(@RequestBody CollectionGetRequest collectionGetRequest, HttpServletRequest httpServletRequest){
+        if (collectionGetRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请选择展示内容的类型");
+        }
+        if (collectionGetRequest.getType() == null){
+            collectionGetRequest.setType(CollectionConstant.ARTICLE_TYPE);
+        }
+        if (collectionGetRequest.getCurrent() == null ||collectionGetRequest.getCurrent() <= 0){
+            collectionGetRequest.setCurrent(1);
+        }
+        if (collectionGetRequest.getPageSize() == null || collectionGetRequest.getPageSize() <= 0){
+            collectionGetRequest.setPageSize(5);
+        }
+        User loginUser = userService.getLoginUser(httpServletRequest);
+        PageVO pageVO = collectionService.getCollectionByUserId(collectionGetRequest,loginUser);
+        return ResultUtils.success(pageVO);
     }
 
 

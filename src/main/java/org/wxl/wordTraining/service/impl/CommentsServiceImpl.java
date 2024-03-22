@@ -68,7 +68,7 @@ public CommentsServiceImpl(ArticleMapper articleMapper,CommentsMapper commentsMa
             comments.setTopId(commentAddRequest.getTopId());
         }
         comments.setIsTop(commentAddRequest.getIsTop());
-        comments.setPraiseNumber(0L);
+        comments.setPraiseNumber(0);
         comments.setIsSticky(0);
         boolean save = this.save(comments);
         if (save){

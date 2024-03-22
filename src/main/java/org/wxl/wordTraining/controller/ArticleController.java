@@ -15,6 +15,7 @@ import org.wxl.wordTraining.common.BaseResponse;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.common.IdRequest;
 import org.wxl.wordTraining.common.ResultUtils;
+import org.wxl.wordTraining.constant.ArticleConstant;
 import org.wxl.wordTraining.constant.UserConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.model.dto.article.ArticleAddRequest;
@@ -58,8 +59,14 @@ public class ArticleController {
         if (StringUtils.isAnyBlank(articleAddRequest.getTitle(),articleAddRequest.getContent(),articleAddRequest.getDescription())){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (articleAddRequest.getTags() == null || articleAddRequest.getTags().isEmpty() || articleAddRequest.getPermissions() == null){
+        if (articleAddRequest.getPermissions() == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (articleAddRequest.getStatus() == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if(ArticleConstant.CONTENT.equals(articleAddRequest.getContent())){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请输入文章内容");
         }
         boolean add = articleService.addArticle(articleAddRequest,request);
         if (add){
@@ -67,7 +74,6 @@ public class ArticleController {
         }else{
             return ResultUtils.error(ErrorCode.OPERATION_ERROR);
         }
-
     }
 
 
@@ -90,7 +96,7 @@ public class ArticleController {
     }
 
     /**
-     * 修改文章的状态
+     * 禁用/解禁文章的状态
      * @param idRequest 当前文章id
      * @return 是否修改成功
      */
@@ -102,6 +108,27 @@ public class ArticleController {
         }
         //修改状态
         boolean update = articleService.updateArticleStatus(idRequest);
+        if (update){
+            return ResultUtils.success(true);
+        }else {
+            return ResultUtils.error(ErrorCode.OPERATION_ERROR);
+        }
+    }
+
+
+    /**
+     * 文章审核通过
+     * @param idRequest 当前文章id
+     * @return 是否修改成功
+     */
+    @PostMapping("/update/status/pass")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse updateArticleStatusPass(@RequestBody IdRequest idRequest){
+        if (idRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        //修改状态
+        boolean update = articleService.updateArticleStatusPass(idRequest);
         if (update){
             return ResultUtils.success(true);
         }else {
@@ -123,6 +150,10 @@ public class ArticleController {
         if (articleUpdateReviewOpinionsRequest.getId() == null || articleUpdateReviewOpinionsRequest.getId() <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+        if (StringUtils.isEmpty(articleUpdateReviewOpinionsRequest.getReviewOpinions() )){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"请填写审核修改意见");
+        }
+
         //上传审核意见
         boolean update = articleService.updateArticleReviewOpinions(articleUpdateReviewOpinionsRequest);
         if (update){
@@ -145,7 +176,6 @@ public class ArticleController {
         }
         TbArticle article = articleService.getById(idRequest.getId());
         return ResultUtils.success(article);
-
     }
 
 

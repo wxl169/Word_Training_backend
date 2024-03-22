@@ -23,24 +23,27 @@
         <result column="is_delete" property="isDelete" />
     </resultMap>
     <update id="addCommentNumber" parameterType="java.lang.Long">
-        update tb_article set comment_number = comment_number + 1 where id=#{articleId} and is_delete= 0;
+        update tb_article set comment_number = comment_number + 1 where id=#{articleId} and is_delete= 0 and status = 0;
     </update>
     <update id="addArticleVisitNumber" parameterType="java.lang.Long">
-            update tb_article set visit_number = visit_number + 1 where id=#{articleId} and is_delete= 0;
+            update tb_article set visit_number = visit_number + 1 where id=#{articleId} and is_delete= 0 and status = 0;
     </update>
     <update id="addArticlePraiseNumber" parameterType="java.lang.Long">
-        update tb_article set praise_number = praise_number + 1  where id = #{articleId} and is_delete = 0;
+        update tb_article set praise_number = praise_number + 1  where id = #{articleId} and is_delete = 0 and status = 0;
     </update>
     <update id="deleteArticlePraiseNumber" parameterType="java.lang.Long">
-        update tb_article set praise_number = praise_number - 1  where id = #{articleId} and is_delete = 0 and praise_number > 0;
+        update tb_article set praise_number = praise_number - 1  where id = #{articleId} and is_delete = 0 and praise_number > 0 and status = 0;
     </update>
 
     <update id="addArticleCollectionNumber" parameterType="java.lang.Long">
-        update tb_article set collection_number = collection_number + 1 where id = #{articleId} and is_delete = 0;
+        update tb_article set collection_number = collection_number + 1 where id = #{articleId} and is_delete = 0 and status = 0;
     </update>
 
     <update id="deleteArticleCollectionNumber" parameterType="java.lang.Long">
-        update tb_article set collection_number = collection_number - 1  where id = #{articleId} and is_delete = 0 and collection_number > 0;
+        update tb_article set collection_number = collection_number - 1  where id = #{articleId} and is_delete = 0 and collection_number > 0 and status = 0;
+    </update>
+    <update id="updateArticleStatusPass" parameterType="java.lang.Long">
+        update tb_article set `status` = 0 where id = #{articleId} and is_delete = 0 and `status` = 1 ;
     </update>
 
     <select id="selectArticleList" resultType="org.wxl.wordTraining.model.vo.article.ArticleVO"
@@ -61,9 +64,51 @@
         <if test="permissions">
             and permissions = #{permissions}
         </if>
-        and a.is_delete = 0 and u.is_delete = 0
+        and a.is_delete = 0 and u.is_delete = 0 and a.status != 3
         LIMIT ${(current - 1) * pageSize},${pageSize};
     </select>
+
+    <select id="selectArticleListAll" resultType="org.wxl.wordTraining.model.vo.article.ArticleVO"
+            parameterType="org.wxl.wordTraining.model.dto.article.ArticleListRequest">
+        select user_id,title,content,a.id,user_account,description,visit_number,praise_number,comment_number,collection_number,
+        a.tags,cover_image,status,permissions,review_opinions,a.create_time,a.update_time
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="userAccount != null and userAccount != ''">
+            and  user_account like CONCAT('%',#{userAccount},'%')
+        </if>
+        <if test="content != null and content != '' ">
+            and (title like  CONCAT('%',#{content},'%') or content like CONCAT('%',#{content},'%')  or description like CONCAT('%',#{content},'%'))
+        </if>
+        <if test="status != null">
+            and  a.status = #{status}
+        </if>
+        <if test="permissions">
+            and permissions = #{permissions}
+        </if>
+        and a.is_delete = 0 and u.is_delete = 0 and a.status != 3
+    </select>
+
+    <select id="getArticleCount" resultType="java.lang.Integer"
+            parameterType="org.wxl.wordTraining.model.dto.article.ArticleListRequest">
+        select count(1)
+        from tb_user as u , tb_article as a
+        where a.user_id = u.id
+        <if test="userAccount != null and userAccount != ''">
+            and  user_account like CONCAT('%',#{userAccount},'%')
+        </if>
+        <if test="content != null and content != '' ">
+            and (title like  CONCAT('%',#{content},'%') or content like CONCAT('%',#{content},'%')  or description like CONCAT('%',#{content},'%'))
+        </if>
+        <if test="status != null">
+            and  a.status = #{status}
+        </if>
+        <if test="permissions">
+            and permissions = #{permissions}
+        </if>
+        and a.is_delete = 0 and u.is_delete = 0 and a.status != 3
+    </select>
+
 
     <select id="selectArticleAll" resultType="org.wxl.wordTraining.model.vo.article.ArticleAllVO"
             parameterType="org.wxl.wordTraining.model.dto.article.ArticleAllRequest">
@@ -75,6 +120,15 @@
             and (a.title like  CONCAT('%',#{content},'%') or a.content like CONCAT('%',#{content},'%')  or a.description like CONCAT('%',#{content},'%'))
         </if>
         and a.status = 0 and a.is_delete = 0 and u.is_delete = 0
+        <if test="type != null and type == 0">
+            order by a.visit_number desc,a.praise_number desc,a.create_time desc
+        </if>
+        <if test="type != null and type == 1">
+            order by a.create_time desc
+        </if>
+        <if test="type != null and type == 2">
+            order by a.praise_number desc,a.collection_number desc, a.visit_number desc
+        </if>
        ;
     </select>
 
@@ -93,8 +147,19 @@
             #{userId}
         </foreach>
         ))
+        <if test="articleAllRequest.type != null and articleAllRequest.type == 0">
+            order by a.praise_number desc,a.collection_number desc,a.create_time desc
+        </if>
+
+        <if test="articleAllRequest.type != null and articleAllRequest.type == 1">
+            order by a.create_time desc
+        </if>
+        <if test="articleAllRequest.type != null and articleAllRequest.type == 2">
+            order by a.praise_number desc,a.collection_number desc , a.visit_number desc
+        </if>
         ;
     </select>
+
     <select id="selectArticleOne" resultType="org.wxl.wordTraining.model.vo.article.ArticleOneMapperVO"
             parameterType="java.lang.Long">
         select a.id,a.user_id,title,username,u.avatar,a.description,content,visit_number,praise_number,comment_number,collection_number,
@@ -103,5 +168,7 @@
         where a.user_id = u.id
         and a.is_delete = 0  and u.is_delete = 0 and a.id = #{articleId};
     </select>
+
+
 
 </mapper>

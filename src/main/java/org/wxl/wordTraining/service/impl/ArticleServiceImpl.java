@@ -1,10 +1,8 @@
 package org.wxl.wordTraining.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.sun.org.apache.bcel.internal.generic.I2F;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +35,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -91,10 +89,10 @@ private final ArticleMapper articleMapper;
         article.setCreateTime(LocalDateTime.now());
         article.setUpdateTime(LocalDateTime.now());
         article.setVisitNumber(0L);
-        article.setCollectionNumber(0L);
-        article.setCommentNumber(0L);
-        article.setStatus(0);
-        article.setPraiseNumber(0L);
+        article.setCollectionNumber(0);
+        article.setCommentNumber(0);
+        article.setStatus(articleAddRequest.getStatus());
+        article.setPraiseNumber(0);
         article.setPermissions(articleAddRequest.getPermissions());
         return this.save(article);
     }
@@ -107,30 +105,56 @@ private final ArticleMapper articleMapper;
     @Override
     public PageVO selectArticleList(ArticleListRequest articleListRequest) {
         //根据条件获取文章列表信息
-        List<ArticleVO> articleVOList = articleMapper.selectArticleList(articleListRequest);
+        List<ArticleVO> articleVOList;
+        //计算共有多少条数据
+        AtomicInteger count = new AtomicInteger(articleMapper.getArticleCount(articleListRequest));
+        List<ArticleListVO> filteredArticleListVOList;
+        if (articleListRequest.getTags().isEmpty()){
+            //如果没有选择根据标签筛选数据
+            //筛选出数据直接返回
+             articleVOList = articleMapper.selectArticleList(articleListRequest);
+        }else{
+            //如果选择了文章标签筛选数据
+            // 定义标签过滤的谓词
+            articleVOList = articleMapper.selectArticleListAll(articleListRequest);
+        }
+        //整理标签数据
+        filteredArticleListVOList = articleVOList.parallelStream().map(articleVO -> {
+            ArticleListVO articleListVO = BeanCopyUtils.copyBean(articleVO, ArticleListVO.class);
+            List<String> tagList = gson.fromJson(articleVO.getTags(), new TypeToken<List<String>>(){}.getType());
+            articleListVO.setTags(tagList);
+            return articleListVO;
+        }).collect(Collectors.toList());
 
-        // 定义标签过滤的谓词
-        Predicate<ArticleListVO> tagFilter = articleListRequest.getTags() != null && !articleListRequest.getTags().isEmpty()
-                ? articleListVO -> new HashSet<>(articleListVO.getTags()).containsAll(articleListRequest.getTags())
-                : articleListVO -> true; // 如果没有标签，则接受所有文章
-
-        // 映射和过滤文章列表
-        List<ArticleListVO> filteredArticleListVOList = articleVOList.stream()
-                .map(articleVO -> {
-                    ArticleListVO articleListVO = BeanCopyUtils.copyBean(articleVO, ArticleListVO.class);
-                    List<String> tagList = gson.fromJson(articleVO.getTags(), new TypeToken<List<String>>(){}.getType());
-                    articleListVO.setTags(tagList);
-                    return articleListVO;
-                })
-                .filter(tagFilter) // 在这里应用标签过滤
-                .skip((articleListRequest.getCurrent() - 1) * articleListRequest.getPageSize())
-                .limit(articleListRequest.getPageSize())
-                .collect(Collectors.toList());
+        if (!articleListRequest.getTags().isEmpty()){
+            // 映射和过滤文章列表
+            filteredArticleListVOList =  filteredArticleListVOList.stream().filter(articleListVO -> {
+                        if (new HashSet<>(articleListVO.getTags()).containsAll(articleListRequest.getTags())){
+                            return true;
+                        }
+                        count.getAndDecrement();
+                        return false;
+                    })
+                    .skip((long) (articleListRequest.getCurrent() - 1) * articleListRequest.getPageSize())
+                    .limit(articleListRequest.getPageSize())
+                    .collect(Collectors.toList());
+        }
         // 创建并返回PageVO对象
-        return new PageVO(filteredArticleListVOList, (long) filteredArticleListVOList.size());
+        return new PageVO(filteredArticleListVOList,count.longValue());
     }
+
     /**
-     * 修改文章的状态
+     * 文章审核通过
+     * @param idRequest 当前文章id
+     * @return 是否修改成功
+     */
+    @Override
+    public boolean updateArticleStatusPass(IdRequest idRequest) {
+        return articleMapper.updateArticleStatusPass(idRequest.getId());
+    }
+
+    /**
+     * 禁用/解禁文章的状态
      * @param idRequest 当前文章状态
      * @return 是否修改成功
      */
@@ -144,17 +168,19 @@ private final ArticleMapper articleMapper;
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"不存在该文章");
         }
         Integer status = article.getStatus();
-        //如果当前文章状态处于正常/整改中/整改完 则该为已封禁
-        if (status == null || status == ArticleConstant.NORMAL_RELEASE || status == ArticleConstant.RECTIFICATION || status == ArticleConstant.RECTIFICATION_END){
+        //如果当前文章状态处于正常/整改中/审核中 则该为已封禁
+        if (status == null || status == ArticleConstant.NORMAL_RELEASE || status == ArticleConstant.RECTIFICATION || status == ArticleConstant.PROCESS){
+            //TODO:通知用户该文章被禁用。
             article.setStatus(ArticleConstant.BAN);
         }else if(status == ArticleConstant.BAN){
+            //TODO:通知用户该文章已解禁。
             //如果当前文章处于封禁状态
             //判断审核意见中是否有内容
             if (StringUtils.isNotBlank(article.getReviewOpinions())){
                 //该为整改状态
                 article.setStatus(ArticleConstant.RECTIFICATION);
             }else{
-                article.setStatus(ArticleConstant.NORMAL_RELEASE);
+                article.setStatus(ArticleConstant.PROCESS);
             }
         }
         return this.updateById(article);
@@ -169,21 +195,16 @@ private final ArticleMapper articleMapper;
     public boolean updateArticleReviewOpinions(ArticleUpdateReviewOpinionsRequest articleUpdateReviewOpinionsRequest) {
         TbArticle article = this.getById(articleUpdateReviewOpinionsRequest.getId());
         Integer status = article.getStatus();
+        if (status != ArticleConstant.NORMAL_RELEASE && status != ArticleConstant.PROCESS && status != ArticleConstant.RECTIFICATION){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"文章已被封禁");
+        }
         LambdaUpdateWrapper<TbArticle> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.set(TbArticle::getReviewOpinions,articleUpdateReviewOpinionsRequest.getReviewOpinions())
                 .eq(TbArticle::getId,articleUpdateReviewOpinionsRequest.getId());
         //如果文章状态为正常状态
-        if (status == ArticleConstant.NORMAL_RELEASE){
+        if (status == ArticleConstant.NORMAL_RELEASE || status == ArticleConstant.PROCESS){
             if (StringUtils.isNotBlank(articleUpdateReviewOpinionsRequest.getReviewOpinions())){
                 updateWrapper.set(TbArticle::getStatus,ArticleConstant.RECTIFICATION);
-            }
-        }
-        //如果文章状态为整改中
-        if (status == ArticleConstant.RECTIFICATION || status == ArticleConstant.RECTIFICATION_END){
-            if (StringUtils.isNotBlank(articleUpdateReviewOpinionsRequest.getReviewOpinions())){
-                updateWrapper.set(TbArticle::getStatus,ArticleConstant.RECTIFICATION);
-            }else{
-                updateWrapper.set(TbArticle::getStatus,ArticleConstant.NORMAL_RELEASE);
             }
         }
 
@@ -213,7 +234,6 @@ private final ArticleMapper articleMapper;
             String concern = loginUserPermitNull.getConcern();
             List<Long> concernList = new ArrayList<>();
             if (StringUtils.isNotBlank(concern)) {
-                System.out.println(concern + "----------------------------------------");
                 concernList = gson.fromJson(concern, new TypeToken<List<Long>>() {}.getType());
             }
             concernList.add(loginUserPermitNull.getId());
@@ -229,12 +249,23 @@ private final ArticleMapper articleMapper;
                     List<String> tagList = gson.fromJson(articleVO.getTags(), new TypeToken<List<String>>() {}.getType());
                     articleListVO.setTags(tagList);
                     return articleListVO;
-                })
-                .filter(articleListVO -> articleAllRequest.getTagName() == null || articleAllRequest.getTagName().isEmpty() || new HashSet<>(articleListVO.getTags()).containsAll(articleAllRequest.getTagName()))
-                .skip((articleAllRequest.getCurrent() - 1) * ArticleConstant.MIN_CURRENT)
-                .limit(ArticleConstant.MIN_CURRENT)
-                .collect(Collectors.toList());
+                }).collect(Collectors.toList());
 
+        //文章数量
+        AtomicInteger count = new AtomicInteger(articleListVOList.size());
+        if (articleAllRequest.getTagName() != null && !articleAllRequest.getTagName().isEmpty()){
+            articleListVOList =  articleListVOList.stream().filter(articleListVO -> {
+                if (new HashSet<>(articleListVO.getTags()).containsAll(articleAllRequest.getTagName())){
+                    return true;
+                }
+                count.getAndDecrement();
+                return false;
+            }).collect(Collectors.toList());
+        }
+        //分页
+        articleListVOList = articleListVOList.stream()
+                .skip((long) (articleAllRequest.getCurrent() - 1) * ArticleConstant.MIN_CURRENT)
+                    .limit(ArticleConstant.MIN_CURRENT).collect(Collectors.toList());
         // 查询每位用户的勋章信息
         articleListVOList.forEach(articleListAllVO -> {
             Long userId = articleListAllVO.getUserId();
@@ -257,7 +288,7 @@ private final ArticleMapper articleMapper;
                 return articleListAllVO;
             }).collect(Collectors.toList());
         }
-        return new PageVO(articleListVOList, (long) articleListVOList.size());
+        return new PageVO(articleListVOList, count.longValue());
     }
 
     /**
@@ -307,6 +338,7 @@ private final ArticleMapper articleMapper;
         }
         return articleOneVO;
     }
+
 
 
 }

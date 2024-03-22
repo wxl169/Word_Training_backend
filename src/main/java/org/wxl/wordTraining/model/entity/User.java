@@ -65,10 +65,10 @@ public class User implements Serializable {
     private String concern;
 
     @ApiModelProperty(value = "连续在线天数")
-    private Long coiledDay;
+    private Integer coiledDay;
 
     @ApiModelProperty(value = "在线天数")
-    private Long onlineDay;
+    private Integer onlineDay;
 
     @ApiModelProperty(value = "最近在线时间")
     private LocalDateTime lastLoginTime;
