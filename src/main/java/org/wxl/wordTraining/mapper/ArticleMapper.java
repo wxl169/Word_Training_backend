@@ -6,7 +6,7 @@ import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
 import org.wxl.wordTraining.model.entity.TbArticle;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.wxl.wordTraining.model.vo.article.ArticleAllVO;
-import org.wxl.wordTraining.model.vo.article.ArticleOneMapperVO;
+import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
 import org.wxl.wordTraining.model.vo.article.ArticleVO;
 
 import java.util.List;
@@ -73,7 +73,7 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @param articleId 文章id
      * @return 文章详细信息
      */
-    ArticleOneMapperVO selectArticleOne(Long articleId);
+    ArticleOneVO selectArticleOne(Long articleId);
 
     /**
      * 文章浏览量加1
@@ -109,4 +109,6 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @return 返回文章信息
      */
     List<ArticleVO> selectArticleListAll(ArticleListRequest articleListRequest);
+
+
 }

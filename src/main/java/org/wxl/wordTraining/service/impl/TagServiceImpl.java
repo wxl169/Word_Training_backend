@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 import org.wxl.wordTraining.utils.BeanCopyUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -63,5 +66,18 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements ITagS
         tag.setCreateTime(LocalDateTime.now());
         tag.setUpdateTime(LocalDateTime.now());
         return this.save(tag);
+    }
+
+    /**
+     * 获取所有的标签数据
+     * @return 标签名数据
+     */
+    @Override
+    public Set<String> getTagAll() {
+        List<Tag> tagList = this.list();
+        if (!tagList.isEmpty()){
+            return tagList.stream().map(Tag::getTagName).collect(Collectors.toSet());
+        }
+        return Collections.emptySet();
     }
 }

@@ -13,18 +13,26 @@
         <result column="article_id" property="articleId" />
         <result column="is_top" property="isTop" />
         <result column="is_sticky" property="isSticky" />
+        <result column="is_show" property="isShow" />
+        <result column="is_complain" property="isComplain" />
         <result column="praise_number" property="praiseNumber" />
         <result column="review_opinions" property="reviewOpinions" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
     <update id="addCommentPraiseNumber" parameterType="java.lang.Long">
-        update tb_comments set praise_number = praise_number + 1 where id = #{commentId} and is_delete = 0;
+        update tb_comments set praise_number = praise_number + 1 where id = #{commentId} and is_delete = 0 and is_show = 0 and is_complain = 0;
     </update>
     <update id="deleteCommentPraiseNumber" parameterType="java.lang.Long">
-        update tb_comments set praise_number = praise_number - 1 where id = #{commentId} and is_delete = 0 and praise_number > 0;
+        update tb_comments set praise_number = praise_number - 1 where id = #{commentId} and is_delete = 0 and praise_number > 0 and is_show = 0 and is_complain = 0;
     </update>
     <update id="deleteComment" parameterType="java.lang.Long">
-        update tb_comments set is_delete = 1 where (id = #{commentId} or parent_id = #{commentId} or top_id = #{commentId}) and is_delete = 0
+        update tb_comments set is_delete = 1 where (id = #{commentId} or parent_id = #{commentId} or top_id = #{commentId}) and is_delete = 0 and is_show = 0 and is_complain = 0
+    </update>
+    <update id="deleteCommentByArticleId" parameterType="java.lang.Long">
+        update tb_comments set is_delete = 1 where article_id = #{articleId};
+    </update>
+    <update id="updateCommentShow">
+        update tb_comments set is_show = #{isShow} where article_id = #{articleId};
     </update>
     <select id="getCommentListAll" resultType="org.wxl.wordTraining.model.vo.comment.CommentListVO"
             parameterType="java.lang.Long">
@@ -32,7 +40,7 @@
             from tb_user as u,tb_comments as c
         where
             c.user_id = u.id
-        and c.is_delete = 0 and u.is_delete = 0
+        and c.is_delete = 0 and u.is_delete = 0 and c.is_show = 0 and c.is_complain = 0
         and c.article_id = #{articleId} and is_top = 0
         order by c.create_time desc,praise_number desc
      </select>
@@ -41,9 +49,16 @@
             from tb_user as u,tb_comments as c
         where
             c.user_id = u.id
-        and c.is_delete = 0 and u.is_delete = 0
+        and c.is_delete = 0 and u.is_delete = 0 and c.is_show = 0 and c.is_complain = 0
         and c.parent_id = #{parentId} and c.top_id = #{topId}
         order by c.create_time desc,praise_number desc
+    </select>
+    <select id="getCommentEarly" resultType="java.time.LocalDateTime" parameterType="java.lang.Long">
+        SELECT create_time
+        FROM tb_comments AS a
+        WHERE ((user_id = #{userId} or parent_id in (SELECT id FROM tb_comments WHERE user_id = #{userId}  AND is_delete = 0)) AND is_delete = 0)
+        ORDER BY create_time asc
+            LIMIT 1;
     </select>
 
 </mapper>

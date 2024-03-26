@@ -4,7 +4,9 @@ import org.apache.ibatis.annotations.Param;
 import org.wxl.wordTraining.model.entity.Comments;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.wxl.wordTraining.model.vo.comment.CommentListVO;
+import org.wxl.wordTraining.model.vo.comment.CommentUserVO;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -51,4 +53,26 @@ public interface CommentsMapper extends BaseMapper<Comments> {
      * @return 是否删除成功
      */
     boolean deleteComment(Long commentId);
+
+    /**
+     * 获取最早发布或回复的评论时间
+     * @param userId 用户id
+     * @return 时间
+     */
+    LocalDateTime getCommentEarly(Long userId);
+
+    /**
+     * 删除该文章下的所有评论
+     * @param articleId 文章id
+     * @return 是否删除成功
+     */
+    boolean deleteCommentByArticleId(Long articleId);
+
+    /**
+     * 修改评论是否显示
+     * @param articleId  文章id
+     * @param isShow  是否显示（0：显示，1：不显示）
+     * @return 是否修改成功
+     */
+    boolean updateCommentShow(@Param("articleId") Long articleId,@Param("isShow") Integer isShow);
 }

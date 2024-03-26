@@ -56,6 +56,10 @@ public class Comments implements Serializable {
 
     @ApiModelProperty(value = "是否置顶(0:不置顶，1：置顶)")
     private Integer isSticky;
+    @ApiModelProperty(value = "是否显示(0:显示，1：不显示)")
+    private Integer isShow;
+    @ApiModelProperty(value = "是否违禁(0:无，1：有)")
+    private Integer isComplain;
     @ApiModelProperty(value = "点赞数")
     private Integer praiseNumber;
 

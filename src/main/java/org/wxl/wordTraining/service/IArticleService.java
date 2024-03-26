@@ -1,13 +1,12 @@
 package org.wxl.wordTraining.service;
 
 import org.wxl.wordTraining.common.IdRequest;
-import org.wxl.wordTraining.model.dto.article.ArticleAddRequest;
-import org.wxl.wordTraining.model.dto.article.ArticleAllRequest;
-import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
-import org.wxl.wordTraining.model.dto.article.ArticleUpdateReviewOpinionsRequest;
+import org.wxl.wordTraining.model.dto.article.*;
 import org.wxl.wordTraining.model.entity.TbArticle;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.vo.PageVO;
+import org.wxl.wordTraining.model.vo.article.ArticleByUserIdVO;
+import org.wxl.wordTraining.model.vo.article.ArticleNumberVO;
 import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
 
 import javax.servlet.http.HttpServletRequest;
@@ -28,6 +27,13 @@ public interface IArticleService extends IService<TbArticle> {
      * @return 上传是否成功
      */
     boolean addArticle(ArticleAddRequest articleAddRequest, HttpServletRequest request);
+    /**
+     * 修改文章
+     * @param articleUpdateRequest 文章信息
+     * @param request 当前登录用户
+     * @return 修改是否成功
+     */
+    boolean updateArticle(ArticleUpdateRequest articleUpdateRequest, HttpServletRequest request);
 
     /**
      * 根据查询条件查询文章列表数据
@@ -70,4 +76,33 @@ public interface IArticleService extends IService<TbArticle> {
      */
     ArticleOneVO selectArticleOne(Long articleId,HttpServletRequest request);
 
+    /**
+     * 我的发布 获取发布文章的数量/标签/时间信息
+     * @param request 获取当前登录时间
+     * @return 获取文章数量/标签/时间信息
+     */
+    ArticleNumberVO getArticleNumber(HttpServletRequest request);
+
+    /**
+     * 根据用户选择的条件查询用户发布的文章
+     * @param articleUserWriteDTO 用户筛选条件
+     * @param request 获取当前登录用户
+     * @return 用户发布的文章
+     */
+    PageVO getArticleByUserWrite(ArticleUserWriteDTO articleUserWriteDTO, HttpServletRequest request);
+
+    /**
+     * 根据文章id删除文章信息
+     * @param articleId 文章id
+     * @param httpServletRequest 当前登录用户
+     * @return 是否删除成功
+     */
+    boolean deleteArticle(Long articleId, HttpServletRequest httpServletRequest);
+
+    /**
+     * 根据文章id获取文章修改信息
+     * @param articleId 文章id
+     * @return 返回的文章信息
+     */
+    ArticleByUserIdVO getArticleUpdateById(Long articleId);
 }

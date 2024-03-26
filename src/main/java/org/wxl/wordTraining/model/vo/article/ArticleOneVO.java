@@ -35,7 +35,9 @@ public class ArticleOneVO implements Serializable {
     @ApiModelProperty("收藏量")
     private Integer collectionNumber;
     @ApiModelProperty("标签")
-    private List<String> tags;
+    private String tags;
+    @ApiModelProperty("标签")
+    private List<String> tagList;
     @ApiModelProperty("封面")
     private String coverImage;
     @ApiModelProperty("创建时间")

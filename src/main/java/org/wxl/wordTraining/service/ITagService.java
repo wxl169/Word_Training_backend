@@ -4,9 +4,8 @@ import org.wxl.wordTraining.model.dto.tag.TagListRequest;
 import org.wxl.wordTraining.model.entity.Tag;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.vo.PageVO;
-import org.wxl.wordTraining.model.vo.tag.TagListVO;
 
-import java.util.List;
+import java.util.Set;
 
 /**
  * <p>
@@ -31,4 +30,10 @@ public interface ITagService extends IService<Tag> {
      * @return
      */
     Boolean addTag(String tagName);
+
+    /**
+     * 获取所有的标签列表
+     * @return 标签列表数据
+     */
+    Set<String> getTagAll();
 }

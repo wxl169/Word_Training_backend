@@ -160,7 +160,7 @@
         ;
     </select>
 
-    <select id="selectArticleOne" resultType="org.wxl.wordTraining.model.vo.article.ArticleOneMapperVO"
+    <select id="selectArticleOne" resultType="org.wxl.wordTraining.model.vo.article.ArticleOneVO"
             parameterType="java.lang.Long">
         select a.id,a.user_id,title,username,u.avatar,a.description,content,visit_number,praise_number,comment_number,collection_number,
                a.tags,cover_image,a.create_time
@@ -168,6 +168,7 @@
         where a.user_id = u.id
         and a.is_delete = 0  and u.is_delete = 0 and a.id = #{articleId};
     </select>
+
 
 
 

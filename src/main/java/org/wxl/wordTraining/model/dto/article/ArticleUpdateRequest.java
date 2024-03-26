@@ -1,6 +1,5 @@
 package org.wxl.wordTraining.model.dto.article;
 
-import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
@@ -11,8 +10,11 @@ import java.util.List;
  * @author wxl
  */
 @Data
-public class ArticleAddRequest implements Serializable {
-    private static final long serialVersionUID = 8314397886653001813L;
+public class ArticleUpdateRequest implements Serializable {
+    private static final long serialVersionUID = -371204412455009529L;
+    @ApiModelProperty(value = "文章id")
+    private Long articleId;
+
     @ApiModelProperty(value = "标题")
     private String title;
 

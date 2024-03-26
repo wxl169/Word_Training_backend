@@ -13,11 +13,15 @@ import org.wxl.wordTraining.common.BaseResponse;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.common.IdRequest;
 import org.wxl.wordTraining.common.ResultUtils;
+import org.wxl.wordTraining.constant.ArticleConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.model.dto.comment.CommentAddRequest;
 import org.wxl.wordTraining.model.dto.comment.CommentDeleteRequest;
+import org.wxl.wordTraining.model.dto.comment.CommentUserWriteRequest;
 import org.wxl.wordTraining.model.entity.User;
+import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.comment.CommentListVO;
+import org.wxl.wordTraining.model.vo.comment.CommentUserHomeVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.service.ICommentsService;
 import org.wxl.wordTraining.service.UserService;
@@ -108,4 +112,58 @@ public class CommentsController {
         }
         return ResultUtils.error(ErrorCode.OPERATION_ERROR,"删除评论失败");
     }
+
+
+    /**
+     * 获取用户发布的评论信息和回复用户评论的
+     * @param request 获取当前登录用户信息
+     * @return 返回评论首页信息
+     */
+    @PostMapping("/get/user")
+    public BaseResponse<CommentUserHomeVO> getCommentUserHome(HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        CommentUserHomeVO commentUserHomeVO = commentsService.getCommentUserHome(loginUser);
+        return ResultUtils.success(commentUserHomeVO);
+    }
+
+    /**
+     * 根据条件获取有关用户的评论信息列表
+     * @param commentUserWriteRequest 筛选条件
+     * @param request 当前登录用户
+     * @return 关于用户的评论信息列表
+     */
+    @PostMapping("/get/page")
+    public BaseResponse<PageVO> getCommentUserVoList(@RequestBody CommentUserWriteRequest commentUserWriteRequest,HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        PageVO commentUserVoList = commentsService.getCommentUserVoList(commentUserWriteRequest, loginUser);
+        return ResultUtils.success(commentUserVoList);
+    }
+
+
+    /**
+     * 在用户个人评论区回复评论
+     * @param commentAddRequest 评论内容
+     * @param request 获取当前登录用户
+     * @return 是否评论成功
+     */
+    @PostMapping("/add/reply")
+    public BaseResponse addCommentReply(@RequestBody CommentAddRequest commentAddRequest,HttpServletRequest request){
+        if (StringUtils.isBlank(commentAddRequest.getContent()) || commentAddRequest.getContent().equals(ArticleConstant.CONTENT)){
+            throw new BusinessException(ErrorCode.NULL_ERROR,"请输入评论内容");
+        }
+        if (commentAddRequest.getParentId() == null || commentAddRequest.getParentId() <= 0){
+            throw new BusinessException(ErrorCode.NULL_ERROR,"请选择要回复的评论");
+        }
+        if (commentAddRequest.getArticleId() == null || commentAddRequest.getArticleId() <= 0){
+            throw new BusinessException(ErrorCode.NULL_ERROR,"请选择要评论的文章");
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean add = commentsService.addCommentReply(commentAddRequest,loginUser);
+        if (!add){
+            return ResultUtils.error(ErrorCode.OPERATION_ERROR,"新增评论失败");
+        }
+        return ResultUtils.success(true);
+    }
+
 }
+
