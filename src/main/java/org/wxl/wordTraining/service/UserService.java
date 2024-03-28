@@ -3,6 +3,7 @@ package org.wxl.wordTraining.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.dto.user.UserListRequest;
+import org.wxl.wordTraining.model.dto.user.UserUpdateByUserRequest;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
@@ -124,4 +125,13 @@ public interface UserService extends IService<User> {
      * @return 是否成功
      */
     boolean deleteFriend(Long friendId, User loginUser);
+
+    /**
+     * 用户更新自己的信息
+     *
+     * @param userUpdateByUserRequest 用户需要修改的数据
+     * @param request 当前用户信息
+     * @return 是否修改成功
+     */
+    boolean updateUser(UserUpdateByUserRequest userUpdateByUserRequest, HttpServletRequest request);
 }

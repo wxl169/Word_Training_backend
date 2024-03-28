@@ -20,6 +20,7 @@ import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.exception.ThrowUtils;
 import org.wxl.wordTraining.mapper.UserMapper;
 import org.wxl.wordTraining.model.dto.user.UserListRequest;
+import org.wxl.wordTraining.model.dto.user.UserUpdateByUserRequest;
 import org.wxl.wordTraining.model.entity.Praise;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.enums.UserRoleEnum;
@@ -46,6 +47,7 @@ import org.springframework.util.DigestUtils;
 import org.wxl.wordTraining.constant.UserConstant;
 import org.wxl.wordTraining.utils.BeanCopyUtils;
 import org.wxl.wordTraining.utils.JwtUtil;
+import org.wxl.wordTraining.utils.RegularUtil;
 
 /**
  * 用户服务实现
@@ -120,6 +122,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setGender(0);
             user.setAvatar(UserConstant.DEFAULT_AVATAR);
             user.setRole(UserConstant.DEFAULT_ROLE);
+            user.setChallengeNum(UserConstant.CHALLENGE_NUMBER);
             user.setPointNumber(0L);
             user.setCoiledDay(0);
             user.setOnlineDay(0);
@@ -435,6 +438,38 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return true;
         }
         return false;
+    }
+
+    /**
+     * 用户更新自己的信息
+     *
+     * @param userUpdateByUserRequest 用户需要修改的数据
+     * @param request 当前用户信息
+     * @return 是否修改成功
+     */
+    @Override
+    public boolean updateUser(UserUpdateByUserRequest userUpdateByUserRequest, HttpServletRequest request) {
+        User user = this.getLoginUser(request);
+        if (StringUtils.isNotBlank(userUpdateByUserRequest.getBirthday())){
+            // 定义日期时间格式
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String birthday = userUpdateByUserRequest.getBirthday() + " 00:00:00";
+            // 解析字符串为LocalDateTime对象
+            LocalDateTime dateTime = LocalDateTime.parse(birthday, formatter);
+            user.setBirthday(dateTime);
+        }
+        //验证手机号格式是否正确
+        if(StringUtils.isNotBlank(userUpdateByUserRequest.getPhone())){
+            boolean b = RegularUtil.checkPhoneNumber(userUpdateByUserRequest.getPhone());
+            ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR,"请输入正确的手机号");
+        }
+        //验证邮箱格式是否正确
+        if(StringUtils.isNotBlank(userUpdateByUserRequest.getEmail())){
+            boolean b = RegularUtil.checkEmail(userUpdateByUserRequest.getEmail());
+            ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR,"请输入正确的邮箱地址");
+        }
+        BeanUtils.copyProperties(userUpdateByUserRequest, user);
+        return this.updateById(user);
     }
 
 

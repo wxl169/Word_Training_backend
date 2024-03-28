@@ -12,7 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 /**
  * SpringContext工具类
  *
- * @author 16956
+ * @author wxl
  */
 @Component
 public class SpringContextUtils implements ApplicationContextAware {

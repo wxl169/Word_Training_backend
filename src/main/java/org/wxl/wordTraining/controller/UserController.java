@@ -16,6 +16,7 @@ import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.wxl.wordTraining.utils.RegularUtil;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
@@ -193,18 +194,8 @@ public class UserController {
         if (userUpdateByUserRequest == null || userUpdateByUserRequest.getId() == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User user = new User();
-        if (StringUtils.isNotBlank(userUpdateByUserRequest.getBirthday())){
-            // 定义日期时间格式
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            String birthday = userUpdateByUserRequest.getBirthday() + " 00:00:00";
-            // 解析字符串为LocalDateTime对象
-            LocalDateTime dateTime = LocalDateTime.parse(birthday, formatter);
-            user.setBirthday(dateTime);
-        }
-        BeanUtils.copyProperties(userUpdateByUserRequest, user);
-        boolean result = userService.updateById(user);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        boolean update  = userService.updateUser(userUpdateByUserRequest,request);
+        ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR,"修改信息失败");
         return ResultUtils.success(true);
     }
 

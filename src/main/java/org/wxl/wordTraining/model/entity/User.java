@@ -64,6 +64,9 @@ public class User implements Serializable {
     @ApiModelProperty(value = "关注人")
     private String concern;
 
+    @ApiModelProperty("每日挑战次数默认为5")
+    private Integer challengeNum;
+
     @ApiModelProperty(value = "连续在线天数")
     private Integer coiledDay;
 

@@ -53,4 +53,9 @@ public interface UserConstant {
      * 用户默认头像
      */
      String DEFAULT_AVATAR = "https://image.cqiewxl.cn/2023/09/26/97dbdd68b48e4027988d2ce90965cdd5.jpg";
+
+    /**
+     * 每日挑战次数
+     */
+    int CHALLENGE_NUMBER = 5;
 }

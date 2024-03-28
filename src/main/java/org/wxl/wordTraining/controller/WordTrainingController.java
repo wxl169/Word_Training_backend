@@ -16,6 +16,7 @@ import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
 import org.wxl.wordTraining.service.UserService;
 import org.wxl.wordTraining.service.WordTrainingService;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -41,7 +42,7 @@ public class WordTrainingController {
      * @return 单词组
      */
     @GetMapping("/get")
-    public BaseResponse getWordList(@RequestBody WordTrainingBeginRequest wordTrainingBeginRequest){
+    public BaseResponse getWordList(@RequestBody WordTrainingBeginRequest wordTrainingBeginRequest, HttpServletRequest request){
         if (wordTrainingBeginRequest == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }

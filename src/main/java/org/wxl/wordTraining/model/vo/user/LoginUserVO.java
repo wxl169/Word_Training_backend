@@ -34,6 +34,10 @@ public class LoginUserVO implements Serializable {
     private String avatar;
     @ApiModelProperty(value = "生日")
     private LocalDateTime birthday;
+    @ApiModelProperty(value = "手机号")
+    private String phone;
+    @ApiModelProperty("邮箱")
+    private String email;
 
     @ApiModelProperty(value = "性别(0:男，1：女)")
     private Integer gender;
@@ -42,6 +46,8 @@ public class LoginUserVO implements Serializable {
 
     @ApiModelProperty(value = "积分数")
     private Long pointNumber;
+    @ApiModelProperty("每日挑战次数")
+    private Integer challengeNum;
 
     @ApiModelProperty(value = "连续在线天数")
     private Integer coiledDay;

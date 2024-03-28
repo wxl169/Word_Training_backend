@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * @author 16956
+ * @author wxl
  */
 @Data
 public class UserUpdateByUserRequest implements Serializable {
@@ -16,5 +16,9 @@ public class UserUpdateByUserRequest implements Serializable {
     private String username;
     private String birthday;
     private Integer gender;
+    private String phone;
+    private String email;
+    private String oldPassword;
+    private String newPassword;
 
 }
