@@ -24,6 +24,7 @@ import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.enums.ArticleWriteStatusEnum;
 import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.article.*;
+import org.wxl.wordTraining.model.vo.comment.CommentListVO;
 import org.wxl.wordTraining.service.*;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
@@ -196,10 +197,15 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateArticleStatusPass(IdRequest idRequest) {
-        //如果该文章存在评论则 隐藏评论
-        boolean update = commentsMapper.updateCommentShow(idRequest.getId(),0);
-        if (!update){
-            throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章状态失败");
+
+        //查看该文章是否有评论
+        List<CommentListVO> commentListAll = commentsMapper.getCommentListAll(idRequest.getId());
+        if (commentListAll != null && !commentListAll.isEmpty()){
+            //如果该文章存在评论则 展示评论
+            boolean update = commentsMapper.updateCommentShow(idRequest.getId(),0);
+            if (!update){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章状态失败");
+            }
         }
         return articleMapper.updateArticleStatusPass(idRequest.getId());
     }
@@ -210,6 +216,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
      * @return 是否修改成功
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean updateArticleStatus(IdRequest idRequest) {
         if (idRequest.getId() == null || idRequest.getId() <= 0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -234,7 +241,6 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
                 article.setStatus(ArticleConstant.PROCESS);
             }
         }
-
         //如果该文章存在评论则 隐藏评论
         boolean update = commentsMapper.updateCommentShow(idRequest.getId(),1);
         if (!update){

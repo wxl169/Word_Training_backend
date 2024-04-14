@@ -19,5 +19,17 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <select id="getWordTrainingList" resultType="org.wxl.wordTraining.model.entity.Word"
+            parameterType="java.util.List">
+        select word,`translation`,image,example,pronounce_english,pronounce_america
+            from tb_word
+        where is_delete = 0 and
+              type in
+        <foreach collection="wordTypeList" item="wordType" open="(" separator="," close=")">
+            #{wordType}
+        </foreach>
+        ORDER BY RAND()
+        LIMIT 50;
+    </select>
 
 </mapper>

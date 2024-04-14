@@ -89,13 +89,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         this.judgeUserAccountAndPassword(userAccount,userPassword);
-
-        if(checkPassword.length() < UserConstant.PASSWORD_MIN_LENGTH){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
-        }
-        if (checkPassword.length() > UserConstant.PASSWORD_MAX_LENGTH ) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过长");
-        }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
@@ -450,25 +443,60 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public boolean updateUser(UserUpdateByUserRequest userUpdateByUserRequest, HttpServletRequest request) {
         User user = this.getLoginUser(request);
-        if (StringUtils.isNotBlank(userUpdateByUserRequest.getBirthday())){
-            // 定义日期时间格式
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            String birthday = userUpdateByUserRequest.getBirthday() + " 00:00:00";
-            // 解析字符串为LocalDateTime对象
-            LocalDateTime dateTime = LocalDateTime.parse(birthday, formatter);
-            user.setBirthday(dateTime);
+        //如果用户名为空则进行的是用户个人信息修改
+        if (StringUtils.isNotBlank(userUpdateByUserRequest.getUsername())){
+            if (userUpdateByUserRequest.getGender() == null || userUpdateByUserRequest.getGender() < 0 || userUpdateByUserRequest.getGender() > 2){
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,"请选择用户性别");
+            }
+            if (StringUtils.isNotBlank(userUpdateByUserRequest.getBirthday())){
+                // 定义日期时间格式
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                String birthday = userUpdateByUserRequest.getBirthday() + " 00:00:00";
+                // 解析字符串为LocalDateTime对象
+                LocalDateTime dateTime = LocalDateTime.parse(birthday, formatter);
+                user.setBirthday(dateTime);
+            }
+            //验证手机号格式是否正确
+            if(StringUtils.isNotBlank(userUpdateByUserRequest.getPhone())){
+                boolean b = RegularUtil.checkPhoneNumber(userUpdateByUserRequest.getPhone());
+                ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR,"请输入正确的手机号");
+            }
+            //验证邮箱格式是否正确
+            if(StringUtils.isNotBlank(userUpdateByUserRequest.getEmail())){
+                boolean b = RegularUtil.checkEmail(userUpdateByUserRequest.getEmail());
+                ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR,"请输入正确的邮箱地址");
+            }
+            BeanUtils.copyProperties(userUpdateByUserRequest, user);
+        }else{
+            //修改密码
+            if (StringUtils.isAnyBlank(userUpdateByUserRequest.getOldPassword(),userUpdateByUserRequest.getNewPassword(),userUpdateByUserRequest.getSureNewPassword())){
+                throw new BusinessException(ErrorCode.PARAMS_ERROR,"请输入密码");
+            }
+            String newPassword = userUpdateByUserRequest.getNewPassword();
+            String sureNewPassword = userUpdateByUserRequest.getSureNewPassword();
+            if(newPassword.length() < UserConstant.PASSWORD_MIN_LENGTH){
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+            }
+            if (newPassword.length() > UserConstant.PASSWORD_MAX_LENGTH ) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过长");
+            }
+            // 密码和校验密码相同
+            if (!newPassword.equals(sureNewPassword)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
+            }
+            // 加密
+            String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userUpdateByUserRequest.getOldPassword()).getBytes());
+            //进行密码修改操作
+            LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(User::getId,user.getId())
+                    .eq(User::getUserPassword,encryptPassword);
+            User oldUser = this.getOne(queryWrapper);
+            if (oldUser == null){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"密码错误");
+            }
+            String encryptNewPassword = DigestUtils.md5DigestAsHex((SALT + newPassword).getBytes());
+            user.setUserPassword(encryptNewPassword);
         }
-        //验证手机号格式是否正确
-        if(StringUtils.isNotBlank(userUpdateByUserRequest.getPhone())){
-            boolean b = RegularUtil.checkPhoneNumber(userUpdateByUserRequest.getPhone());
-            ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR,"请输入正确的手机号");
-        }
-        //验证邮箱格式是否正确
-        if(StringUtils.isNotBlank(userUpdateByUserRequest.getEmail())){
-            boolean b = RegularUtil.checkEmail(userUpdateByUserRequest.getEmail());
-            ThrowUtils.throwIf(!b, ErrorCode.PARAMS_ERROR,"请输入正确的邮箱地址");
-        }
-        BeanUtils.copyProperties(userUpdateByUserRequest, user);
         return this.updateById(user);
     }
 

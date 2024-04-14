@@ -19,5 +19,6 @@ public class WordTrainingBeginRequest implements Serializable {
     private Integer difficulty;
     @ApiModelProperty("单词类型")
     private List<String> wordTypeList;
-
+    @ApiModelProperty("临时用户账号")
+    private String temporaryUserAccount;
 }

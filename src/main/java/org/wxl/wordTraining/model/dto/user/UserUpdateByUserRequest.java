@@ -20,5 +20,6 @@ public class UserUpdateByUserRequest implements Serializable {
     private String email;
     private String oldPassword;
     private String newPassword;
+    private String sureNewPassword;
 
 }

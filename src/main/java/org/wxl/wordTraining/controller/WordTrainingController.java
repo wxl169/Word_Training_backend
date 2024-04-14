@@ -3,21 +3,20 @@ package org.wxl.wordTraining.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.wxl.wordTraining.annotation.JwtToken;
 import org.wxl.wordTraining.common.BaseResponse;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.common.ResultUtils;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingBeginRequest;
+
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
-import org.wxl.wordTraining.service.UserService;
 import org.wxl.wordTraining.service.WordTrainingService;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+
 
 /**
  * 单词训练控制器
@@ -27,11 +26,9 @@ import java.util.List;
 @RequestMapping("/word_training")
 @Slf4j
 public class WordTrainingController {
-    private final UserService userService;
     private final WordTrainingService wordTrainingService;
     @Autowired
-    public WordTrainingController(UserService userService,WordTrainingService wordTrainingService) {
-        this.userService = userService;
+    public WordTrainingController(WordTrainingService wordTrainingService) {
         this.wordTrainingService = wordTrainingService;
     }
 
@@ -39,10 +36,12 @@ public class WordTrainingController {
     /**
      * 根据用户选择的单词类型进行单词整理
      * @param wordTrainingBeginRequest 用户选择的单词训练模式
+     * @param request 获取当前登录用户信息
      * @return 单词组
      */
-    @GetMapping("/get")
-    public BaseResponse getWordList(@RequestBody WordTrainingBeginRequest wordTrainingBeginRequest, HttpServletRequest request){
+    @PostMapping("/begin")
+    @JwtToken
+    public BaseResponse<WordTrainingVO> getWordList(@RequestBody WordTrainingBeginRequest wordTrainingBeginRequest, HttpServletRequest request){
         if (wordTrainingBeginRequest == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -52,11 +51,11 @@ public class WordTrainingController {
         if (wordTrainingBeginRequest.getDifficulty() == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请先选择游戏难度");
         }
-        if (wordTrainingBeginRequest.getWordTypeList() == null ){
+        if (wordTrainingBeginRequest.getWordTypeList() == null || wordTrainingBeginRequest.getWordTypeList().isEmpty() ){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"请先选择单词类型");
         }
-        Object wordTrainingVOList =  wordTrainingService.getWordList(wordTrainingBeginRequest);
-        return ResultUtils.success(wordTrainingVOList);
+        WordTrainingVO wordTrainingVO =  wordTrainingService.getWordList(wordTrainingBeginRequest,request);
+        return ResultUtils.success(wordTrainingVO);
     }
 
 

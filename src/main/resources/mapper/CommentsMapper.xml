@@ -32,7 +32,7 @@
         update tb_comments set is_delete = 1 where article_id = #{articleId};
     </update>
     <update id="updateCommentShow">
-        update tb_comments set is_show = #{isShow} where article_id = #{articleId};
+        update tb_comments set is_show = #{isShow} where article_id = #{articleId} and is_delete = 0;
     </update>
     <select id="getCommentListAll" resultType="org.wxl.wordTraining.model.vo.comment.CommentListVO"
             parameterType="java.lang.Long">

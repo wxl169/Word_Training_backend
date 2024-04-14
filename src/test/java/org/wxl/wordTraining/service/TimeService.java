@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 @SpringBootTest
 public class TimeService {
@@ -34,7 +35,16 @@ private IWordService wordService;
     }
 
 
+    @Test
+    public void test2() {
+        Random random = new Random();
+        // 生成随机数，范围是0到3
+        for(int i = 0 ; i < 10 ; i++){
+            int randomNumber = random.nextInt(4);
+            System.out.println("随机数是：" + randomNumber);
+        }
 
+    }
 
 //    @Test
 //    public void test2(){
