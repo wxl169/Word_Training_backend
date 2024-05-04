@@ -31,5 +31,12 @@
         ORDER BY RAND()
         LIMIT 50;
     </select>
+    <select id="selectWordByWordTypeCount" resultType="java.lang.Integer" parameterType="java.lang.String">
+        select count(1) from tb_word where type like concat('%',#{wordType},'%') and is_delete = 0;
+    </select>
+    <select id="selectWordByWordType" resultType="org.wxl.wordTraining.model.entity.Word"
+            parameterType="java.lang.String">
+        select id,type from tb_word where type like concat('%',#{wordType},'%') and is_delete = 0;
+    </select>
 
 </mapper>

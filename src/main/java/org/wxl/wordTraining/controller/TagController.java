@@ -68,7 +68,12 @@ public class TagController {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        return ResultUtils.success(tagService.removeById(deleteRequest.getId()));
+        boolean delete =  tagService.deleteTag(deleteRequest.getId());
+        if (delete){
+            return ResultUtils.success(true);
+        }else{
+            return ResultUtils.error(ErrorCode.OPERATION_ERROR,"删除标签失败");
+        }
     }
 
     /**
@@ -79,13 +84,15 @@ public class TagController {
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> updateTag(@RequestBody TagUpdateRequest tagUpdateRequest) {
-        if (tagUpdateRequest == null || tagUpdateRequest.getId() <= 0) {
+        if (tagUpdateRequest == null || tagUpdateRequest.getId() <= 0 || StringUtils.isBlank(tagUpdateRequest.getTagName())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        LambdaUpdateWrapper<Tag> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.set(StringUtils.isNotBlank(tagUpdateRequest.getTagName()),Tag::getTagName,tagUpdateRequest.getTagName())
-                .eq(Tag::getId,tagUpdateRequest.getId());
-        return ResultUtils.success(tagService.update(updateWrapper));
+        boolean update = tagService.updateTag(tagUpdateRequest);
+        if (update){
+            return ResultUtils.success(true);
+        }else{
+            return ResultUtils.error(ErrorCode.OPERATION_ERROR,"修改标签失败");
+        }
     }
 
     /**

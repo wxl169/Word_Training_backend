@@ -67,9 +67,7 @@ public class WordTypeController {
     @GetMapping("/list")
     @JwtToken
     public BaseResponse<List<WordTypeVO>> listWordTypeVO(HttpServletRequest request) {
-        LambdaQueryWrapper<WordType> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(WordType::getIsGroupName,0);
-        List<WordType> wordTypeList = wordTypeService.list(queryWrapper);
+        List<WordType> wordTypeList = wordTypeService.listWordTypeVO();
         return ResultUtils.success(BeanCopyUtils.copyBeanList(wordTypeList,WordTypeVO.class));
     }
 
@@ -87,6 +85,9 @@ public class WordTypeController {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+
+
+
         boolean b = wordTypeService.deleteWordType(deleteRequest.getId());
 //        boolean b = wordTypeService.removeById(deleteRequest.getId());
         return ResultUtils.success(b);

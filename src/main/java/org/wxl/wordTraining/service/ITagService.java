@@ -1,6 +1,7 @@
 package org.wxl.wordTraining.service;
 
 import org.wxl.wordTraining.model.dto.tag.TagListRequest;
+import org.wxl.wordTraining.model.dto.tag.TagUpdateRequest;
 import org.wxl.wordTraining.model.entity.Tag;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.vo.PageVO;
@@ -36,4 +37,17 @@ public interface ITagService extends IService<Tag> {
      * @return 标签列表数据
      */
     Set<String> getTagAll();
+
+    /**
+     * 根据标签Id删除标签
+     * @param tagId 标签Id
+     */
+    boolean deleteTag(Long tagId);
+
+    /**
+     * 根据传入的修改信息修改标签信息
+     * @param tagUpdateRequest 修改信息
+     * @return 是否修改成功
+     */
+    boolean updateTag(TagUpdateRequest tagUpdateRequest);
 }

@@ -24,5 +24,8 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <select id="selectByUserAccount" resultType="java.lang.Long" parameterType="java.lang.String">
+        select id from tb_user where user_account = #{userAccount} and is_delete = 0;
+    </select>
 
 </mapper>

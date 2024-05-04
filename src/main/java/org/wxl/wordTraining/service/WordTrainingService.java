@@ -1,10 +1,12 @@
 package org.wxl.wordTraining.service;
 
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingBeginRequest;
+import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingJudgementDTO;
+import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingJudgementVO;
+import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingTotalVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 
 /**
  * 单词训练
@@ -17,5 +19,13 @@ public interface WordTrainingService {
      * @param request 请求
      * @return 单词数据
      */
-   WordTrainingVO getWordList(WordTrainingBeginRequest wordTrainingBeginRequest,HttpServletRequest request);
+    WordTrainingTotalVO getWordList(WordTrainingBeginRequest wordTrainingBeginRequest, HttpServletRequest request);
+
+    /**
+     * 判断答案是否正确
+     * @param wordTrainingJudgementDTO 答案
+     * @param request 获取登录用户信息
+     * @return 判断结果
+     */
+    WordTrainingJudgementVO doJudgement(WordTrainingJudgementDTO wordTrainingJudgementDTO, HttpServletRequest request);
 }

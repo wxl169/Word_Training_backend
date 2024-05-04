@@ -168,8 +168,13 @@
         where a.user_id = u.id
         and a.is_delete = 0  and u.is_delete = 0 and a.id = #{articleId};
     </select>
-
-
+    <select id="selectArticleByTagCount" resultType="java.lang.Integer" parameterType="java.lang.String">
+        select count(1) from tb_article where tags like CONCAT('%',#{tagName},'%') and is_delete = 0;
+    </select>
+    <select id="selectArticleByTag" resultType="org.wxl.wordTraining.model.entity.TbArticle"
+            parameterType="java.lang.String">
+        select * from tb_article where tags like CONCAT('%',#{tagName},'%') and is_delete = 0;
+    </select>
 
 
 </mapper>

@@ -29,5 +29,13 @@ public interface WordTrainingConstant {
      */
     int CHALLENGE = 1;
 
+    /**
+     * 每道题过期时间
+     */
+    int EXPIRE_TIME = 60 * 60   * 3; // 3小时
+
+
+
+
 
 }

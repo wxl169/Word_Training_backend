@@ -1,12 +1,13 @@
 package org.wxl.wordTraining.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.dto.word.wordType.WordTypeAddRequest;
 import org.wxl.wordTraining.model.dto.word.wordType.WordTypeListRequest;
 import org.wxl.wordTraining.model.dto.word.wordType.WordTypeUpdateRequest;
 import org.wxl.wordTraining.model.entity.WordType;
-import com.baomidou.mybatisplus.extension.service.IService;
 import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.word.word_type.WordTypeListVO;
+import org.wxl.wordTraining.model.vo.word.word_type.WordTypeVO;
 
 import java.util.List;
 
@@ -53,4 +54,10 @@ public interface IWordTypeService extends IService<WordType> {
      * @return 是否修改成功
      */
     Boolean updateWordType(WordTypeUpdateRequest wordTypeUpdateRequest);
+
+    /**
+     * 获取单词类型列表
+     * @return 单词类型列表信息
+     */
+    List<WordType> listWordTypeVO();
 }

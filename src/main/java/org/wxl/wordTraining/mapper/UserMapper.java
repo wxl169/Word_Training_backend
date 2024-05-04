@@ -12,4 +12,10 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  */
 public interface UserMapper extends BaseMapper<User> {
 
+    /**
+     * 根据账号查询用户id
+     * @param userAccount 用户账号
+     * @return 用户Id
+     */
+    Long selectByUserAccount(String userAccount);
 }

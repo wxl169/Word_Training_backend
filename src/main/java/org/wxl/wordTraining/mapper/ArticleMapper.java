@@ -3,6 +3,7 @@ package org.wxl.wordTraining.mapper;
 import org.apache.ibatis.annotations.Param;
 import org.wxl.wordTraining.model.dto.article.ArticleAllRequest;
 import org.wxl.wordTraining.model.dto.article.ArticleListRequest;
+import org.wxl.wordTraining.model.entity.Tag;
 import org.wxl.wordTraining.model.entity.TbArticle;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.wxl.wordTraining.model.vo.article.ArticleAllVO;
@@ -111,4 +112,17 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
     List<ArticleVO> selectArticleListAll(ArticleListRequest articleListRequest);
 
 
+    /**
+     *根据标签名判断是否有文章关联该标签
+     * @param tagName 标签名
+     * @return 关联文章数量
+     */
+    int selectArticleByTagCount(String tagName);
+
+    /**
+     * 根据标签名获取文章列表
+     * @param tagName 标签名
+     * @return
+     */
+    List<TbArticle> selectArticleByTag(String tagName);
 }
