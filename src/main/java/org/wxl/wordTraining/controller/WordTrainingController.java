@@ -71,7 +71,7 @@ public class WordTrainingController {
      * @param request 获取登录用户
      * @return 下一题数据
      */
-    @PostMapping("/judgment")
+    @PostMapping("/judgement")
     @JwtToken
     public BaseResponse<WordTrainingJudgementVO> doJudgement(@RequestBody WordTrainingJudgementDTO wordTrainingJudgementDTO, HttpServletRequest request) {
         if (wordTrainingJudgementDTO == null || StringUtils.isBlank(wordTrainingJudgementDTO.getAnswer())){

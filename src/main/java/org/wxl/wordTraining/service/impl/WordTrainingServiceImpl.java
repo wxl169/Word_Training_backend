@@ -200,7 +200,7 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             // 如果有数据，删除数据
             redisTemplate.delete(redisKeyByTraining);
         }
-        int count = 1;
+        int questionNumber  = 1;
         for (WordListVO wordVO : filteredWordVOList){
             //生成单词训练数据
             WordTrainingVO wordTrainingVO = new WordTrainingVO();
@@ -208,8 +208,13 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             wordTrainingVO.setWord(wordVO.getWord());
             wordTrainingVO.setPronounceEnglish(wordVO.getPronounceEnglish());
             wordTrainingVO.setPronounceAmerica(wordVO.getPronounceAmerica());
-            // 随机确定正确答案的位置
+            int oldSize = wordList.size();
+            //删除当前单词的信息
+            Word word = wordMapper.selectById(wordVO.getId());
+            wordList.remove(word);
+            // 词库总长度
             int size = wordList.size();
+            //生成正确答案的位置
             int correctIndex = random.nextInt(4);
             // 生成四个选项
             List<String> options = new ArrayList<>();
@@ -234,8 +239,6 @@ public class WordTrainingServiceImpl implements WordTrainingService {
                     options.add(randomOption);
                 }
             }
-            // 打乱选项的顺序
-            Collections.shuffle(options);
             // 将选项分别设置到对应的问题属性上
             wordTrainingVO.setQuestionA(options.get(0));
             wordTrainingVO.setQuestionB(options.get(1));
@@ -243,20 +246,24 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             wordTrainingVO.setQuestionD(options.get(3));
             // 设置正确答案的 MD5 加密值
             wordTrainingVO.setAnswer(Md5Util.encrypt(String.valueOf(correctIndex + 1), REDIS_KEY_PREFIX));
-            wordTrainingVO.setQuestionNumber(count);
+            wordTrainingVO.setQuestionNumber(questionNumber);
             wordTrainingVO.setIsTrue(0);
             //将生产的题目保持在redis中
-            redisTemplate.opsForHash().put(redisKeyByTraining,String.valueOf(count),gson.toJson(wordTrainingVO));
-            count++;
+            redisTemplate.opsForHash().put(redisKeyByTraining,String.valueOf(questionNumber ),gson.toJson(wordTrainingVO));
+            questionNumber ++;
+            //将删除的单词数据重新添加进wordList中
+            wordList.add(word);
         }
         //设置过期时间
         redisTemplate.expire(redisKeyByTraining,WordTrainingConstant.EXPIRE_TIME, TimeUnit.SECONDS);
         WordTrainingVO wordTrainingVO = gson.fromJson((String) redisTemplate.opsForHash().get(redisKeyByTraining, "1"), WordTrainingVO.class);
         WordTrainingTotalVO wordTrainingTotalVO = new WordTrainingTotalVO();
         wordTrainingTotalVO.setWordTrainingVO(wordTrainingVO);
-        wordTrainingTotalVO.setTotal(count - 1);
+        wordTrainingTotalVO.setTotal(questionNumber  - 1);
         return wordTrainingTotalVO;
         }
+
+
 
 
     /**
@@ -388,7 +395,8 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         }
         WordTrainingVO wordTrainingVO = gson.fromJson(wordTrainingVOStr, WordTrainingVO.class);
         //判断答案是否正确
-        if (Md5Util.encrypt(answer, REDIS_KEY_PREFIX).equals(wordTrainingVO.getAnswer())) {
+        String newAnswer = Md5Util.encrypt(answer, REDIS_KEY_PREFIX);
+        if (newAnswer.equals(wordTrainingVO.getAnswer())) {
             //如果答案正确，将答案置为1
             wordTrainingVO.setIsTrue(1);
             isTrue  = true;
@@ -424,7 +432,6 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         }
         //如果有下一题，则返回下一题
         wordTrainingVONext = gson.fromJson(wordTrainingVONextStr, WordTrainingVO.class);
-
         wordTrainingJudgementVO.setWordTrainingVO(wordTrainingVONext);
         wordTrainingJudgementVO.setIsTrue(isTrue);
         wordTrainingJudgementVO.setMode(mode);
