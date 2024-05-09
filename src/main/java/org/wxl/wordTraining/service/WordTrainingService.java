@@ -1,7 +1,9 @@
 package org.wxl.wordTraining.service;
 
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingBeginRequest;
+import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingEndDTO;
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingJudgementDTO;
+import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingEndVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingJudgementVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingTotalVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
@@ -28,4 +30,27 @@ public interface WordTrainingService {
      * @return 判断结果
      */
     WordTrainingJudgementVO doJudgement(WordTrainingJudgementDTO wordTrainingJudgementDTO, HttpServletRequest request);
+    /**
+     * 结算训练结果
+     * @param wordTrainingEndDTO 当前训练信息
+     * @param request 获取当前登录用户
+     * @return 训练结果信息
+     */
+    WordTrainingEndVO endTraining(WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request);
+
+    /**
+     * 结算单词训练
+     * @param wordTrainingEndDTO 结算信息
+     * @param request 获取当前登录用户
+     * @return 结算结果
+     */
+    Boolean settlementWordTraining(WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request);
+
+    /**
+     * 在训练过程中结束训练
+     * @param wordTrainingEndDTO 训练信息
+     * @param request 获取当前登录用户
+     * @return 是否结束成功
+     */
+    Boolean endTrainingInBegin(WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request);
 }

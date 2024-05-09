@@ -21,6 +21,6 @@ public interface IWordAnswerService extends IService<WordAnswer> {
      * @param difficulty 难度等级
      * @return 是否保存成功
      */
-    Boolean saveWordAnswer(Map<String, String> wordAnswerMap, String userAccount,Integer difficulty);
+    Boolean saveWordAnswer(Map<String, Object> wordAnswerMap, String userAccount,Integer difficulty);
 
 }

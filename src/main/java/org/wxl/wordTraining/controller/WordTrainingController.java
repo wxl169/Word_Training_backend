@@ -12,7 +12,9 @@ import org.wxl.wordTraining.common.ResultUtils;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingBeginRequest;
 
+import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingEndDTO;
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingJudgementDTO;
+import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingEndVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingJudgementVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingTotalVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
@@ -88,6 +90,75 @@ public class WordTrainingController {
         }
         WordTrainingJudgementVO wordTrainingJudgementVO = wordTrainingService.doJudgement(wordTrainingJudgementDTO,request);
         return ResultUtils.success(wordTrainingJudgementVO);
+    }
+
+
+    /**
+     * 结算训练结果
+     * @param wordTrainingEndDTO 当前训练信息
+     * @param request 获取当前登录用户
+     * @return 训练结果信息
+     */
+    @PostMapping("/end")
+    @JwtToken
+    public BaseResponse<WordTrainingEndVO> wordTrainingEnd(@RequestBody WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request) {
+        this.judgement(wordTrainingEndDTO,request);
+        WordTrainingEndVO wordTrainingEndVO = wordTrainingService.endTraining(wordTrainingEndDTO,request);
+        return  ResultUtils.success(wordTrainingEndVO);
+    }
+
+    /**
+     * 结算单词训练
+     * @param wordTrainingEndDTO 用户信息
+     * @param request 获取当前登录用户
+     * @return 是否结束成功
+     */
+    @PostMapping("/settlement")
+    @JwtToken
+    public BaseResponse<Boolean> settlementWordTraining(@RequestBody WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request){
+        this.judgement(wordTrainingEndDTO,request);
+        Boolean result = wordTrainingService.settlementWordTraining(wordTrainingEndDTO,request);
+        if (result){
+            return ResultUtils.success(true);
+        }else{
+            return ResultUtils.error(ErrorCode.SYSTEM_ERROR,"结算失败");
+        }
+    }
+
+    /**
+     * 在训练过程中结束训练
+     * @param wordTrainingEndDTO 训练信息
+     * @param request 获取当前登录用户
+     * @return 是否结束成功
+     */
+    @PostMapping("/endTraining")
+    @JwtToken
+    public BaseResponse<Boolean> endTraining(@RequestBody WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request){
+        this.judgement(wordTrainingEndDTO,request);
+        Boolean result = wordTrainingService.endTrainingInBegin(wordTrainingEndDTO,request);
+        if (result){
+            return ResultUtils.success(true);
+        }else{
+            return ResultUtils.error(ErrorCode.SYSTEM_ERROR,"结束训练失败");
+        }
+    }
+
+
+    /**
+     * 判断参数是否正确
+     * @param wordTrainingEndDTO 训练信息
+     * @param request 获取当前登录用户
+     */
+    private void judgement(WordTrainingEndDTO wordTrainingEndDTO,HttpServletRequest request){
+        if (wordTrainingEndDTO == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"暂无结算信息");
+        }
+        if (wordTrainingEndDTO.getMode() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请先选择游戏模式");
+        }
+        if (wordTrainingEndDTO.getDifficulty() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请先选择游戏难度");
+        }
     }
 
 }

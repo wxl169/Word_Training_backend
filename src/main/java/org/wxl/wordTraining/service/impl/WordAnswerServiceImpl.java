@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.wxl.wordTraining.common.ErrorCode;
+import org.wxl.wordTraining.constant.WordTrainingConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.mapper.UserMapper;
 import org.wxl.wordTraining.model.entity.WordAnswer;
@@ -42,7 +43,7 @@ public class WordAnswerServiceImpl extends ServiceImpl<WordAnswerMapper, WordAns
      * @return 是否保存成功
      */
     @Override
-    public Boolean saveWordAnswer(Map<String, String> wordAnswerMap, String userAccount,Integer difficulty) {
+    public Boolean saveWordAnswer(Map<String, Object> wordAnswerMap, String userAccount,Integer difficulty) {
         if (wordAnswerMap == null || wordAnswerMap.isEmpty()){
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"题库数据不能为空");
         }
@@ -57,13 +58,20 @@ public class WordAnswerServiceImpl extends ServiceImpl<WordAnswerMapper, WordAns
         //查询用户id
         Long userId = userMapper.selectByUserAccount(userAccount);
         List<WordAnswer> wordAnswerList = new ArrayList<>();
-        for (Map.Entry<String, String> wordAnswer : wordAnswerMap.entrySet()) {
-            WordTrainingVO wordTrainingVO = gson.fromJson(wordAnswer.getValue(), WordTrainingVO.class);
+        for (Map.Entry<String, Object> wordAnswer : wordAnswerMap.entrySet()) {
+            WordTrainingVO wordTrainingVO = gson.fromJson((String) wordAnswer.getValue(), WordTrainingVO.class);
+            if (wordTrainingVO.getIsTrue().equals(0)){
+                continue;
+            }
             WordAnswer answer = new WordAnswer();
             answer.setUserId(userId);
             answer.setWordId(wordTrainingVO.getWordId());
             answer.setPoints(points);
-            answer.setIsTrue(wordTrainingVO.getIsTrue());
+            if (wordTrainingVO.getIsTrue().equals(1)) {
+                answer.setIsTrue(0);
+            }else if(wordTrainingVO.getIsTrue().equals(2)){
+                answer.setIsTrue(1);
+            }
             answer.setErrorCause(wordTrainingVO.getErrorCause());
             answer.setIsShow(0);
             answer.setStatus(0);
