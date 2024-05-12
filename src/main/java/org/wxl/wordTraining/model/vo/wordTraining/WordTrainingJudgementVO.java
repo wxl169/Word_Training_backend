@@ -23,4 +23,6 @@ public class WordTrainingJudgementVO implements Serializable {
     private Boolean isTrue;
     @ApiModelProperty("正确单词Id")
     private Long wordId;
+    @ApiModelProperty("生命值")
+    private Integer healthValue;
 }

@@ -24,6 +24,9 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <update id="updatePointAll">
+        update tb_user set point_number = point_number + #{pointAll} where id = #{userId} and is_delete = 0;
+    </update>
     <select id="selectByUserAccount" resultType="java.lang.Long" parameterType="java.lang.String">
         select id from tb_user where user_account = #{userAccount} and is_delete = 0;
     </select>

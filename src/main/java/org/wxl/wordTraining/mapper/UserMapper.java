@@ -1,5 +1,6 @@
 package org.wxl.wordTraining.mapper;
 
+import org.apache.ibatis.annotations.Param;
 import org.wxl.wordTraining.model.entity.User;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
@@ -18,4 +19,12 @@ public interface UserMapper extends BaseMapper<User> {
      * @return 用户Id
      */
     Long selectByUserAccount(String userAccount);
+
+    /**
+     * 更新用户积分总数
+     * @param userId 用户Id
+     * @param pointAll 积分总数
+     * @return 是否更新成功
+     */
+    boolean updatePointAll(@Param("userId") Long userId, @Param("pointAll") int pointAll);
 }

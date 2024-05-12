@@ -53,4 +53,5 @@ public class WordTrainingVO implements Serializable {
 
     @ApiModelProperty("正确单词Id")
     private Long wordId;
+
 }

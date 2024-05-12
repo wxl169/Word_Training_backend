@@ -27,5 +27,7 @@ public class WordTrainingEndVO implements Serializable {
     private Integer score;
     @ApiModelProperty("完成的题目数量")
     private Integer finishNum;
+    @ApiModelProperty("完成时间")
+    private Long finishTime;
 
 }

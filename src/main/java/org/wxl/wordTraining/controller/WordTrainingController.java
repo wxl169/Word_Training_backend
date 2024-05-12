@@ -17,11 +17,10 @@ import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingJudgementDTO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingEndVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingJudgementVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingTotalVO;
-import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
 import org.wxl.wordTraining.service.WordTrainingService;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+import java.text.ParseException;
 
 
 /**
@@ -99,11 +98,11 @@ public class WordTrainingController {
      * @param request 获取当前登录用户
      * @return 训练结果信息
      */
-    @PostMapping("/end")
+    @PostMapping("/balance")
     @JwtToken
-    public BaseResponse<WordTrainingEndVO> wordTrainingEnd(@RequestBody WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request) {
+    public BaseResponse<WordTrainingEndVO> wordTrainingEnd(@RequestBody WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request) throws ParseException {
         this.judgement(wordTrainingEndDTO,request);
-        WordTrainingEndVO wordTrainingEndVO = wordTrainingService.endTraining(wordTrainingEndDTO,request);
+        WordTrainingEndVO wordTrainingEndVO = wordTrainingService.balanceTraining(wordTrainingEndDTO,request);
         return  ResultUtils.success(wordTrainingEndVO);
     }
 
@@ -145,6 +144,28 @@ public class WordTrainingController {
 
 
     /**
+     * 单词训练答题时间结束
+     *
+     * @param wordTrainingJudgementDTO 答案
+     * @param request 获取当前登录用户
+     * @return 下一题数据
+     */
+    @PostMapping("/timeEnd")
+    public BaseResponse<WordTrainingJudgementVO> wordTrainingTimeEnd(@RequestBody WordTrainingJudgementDTO wordTrainingJudgementDTO, HttpServletRequest request){
+        if (wordTrainingJudgementDTO.getQuestionNumber() == null || wordTrainingJudgementDTO.getQuestionNumber() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "题号错误");
+        }
+        if (wordTrainingJudgementDTO.getMode() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请先选择游戏模式");
+        }
+        if (wordTrainingJudgementDTO.getDifficulty() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请先选择游戏难度");
+        }
+        WordTrainingJudgementVO wordTrainingJudgementVO = wordTrainingService.wordTrainingTimeEnd(wordTrainingJudgementDTO,request);
+        return ResultUtils.success(wordTrainingJudgementVO);
+    }
+
+    /**
      * 判断参数是否正确
      * @param wordTrainingEndDTO 训练信息
      * @param request 获取当前登录用户
@@ -160,5 +181,8 @@ public class WordTrainingController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请先选择游戏难度");
         }
     }
+
+
+
 
 }

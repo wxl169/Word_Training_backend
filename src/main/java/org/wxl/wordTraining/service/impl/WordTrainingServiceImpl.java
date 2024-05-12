@@ -1,10 +1,15 @@
 package org.wxl.wordTraining.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import io.lettuce.core.RedisClient;
 import jodd.util.StringUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,6 +23,8 @@ import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingEndDTO;
 import org.wxl.wordTraining.model.dto.wordTraining.WordTrainingJudgementDTO;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.entity.Word;
+import org.wxl.wordTraining.model.enums.WordTrainingDifficultyEnum;
+import org.wxl.wordTraining.model.enums.WordTrainingModeEnum;
 import org.wxl.wordTraining.model.vo.word.WordListVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingEndVO;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingJudgementVO;
@@ -29,8 +36,12 @@ import org.wxl.wordTraining.service.WordTrainingService;
 import org.wxl.wordTraining.utils.BeanCopyUtils;
 import org.wxl.wordTraining.utils.Md5Util;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.awt.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +53,7 @@ import java.util.stream.Collectors;
  */
 
 @Service
+@Slf4j
 public class WordTrainingServiceImpl implements WordTrainingService {
     private static final String REDIS_KEY_PREFIX = "word_training_";
     private final RedisTemplate redisTemplate;
@@ -50,13 +62,15 @@ public class WordTrainingServiceImpl implements WordTrainingService {
     private final IWordAnswerService wordAnswerService;
     private final Gson gson = new Gson();
     private final Random random = new Random();
-    private final String IS_TRAINING_END = "0";
+    private final RedissonClient redissonClient;
+
     @Autowired
-    public WordTrainingServiceImpl(RedisTemplate redisTemplate,UserService userService,WordMapper wordMapper,IWordAnswerService wordAnswerService) {
+    public WordTrainingServiceImpl(RedisTemplate redisTemplate, UserService userService, WordMapper wordMapper, IWordAnswerService wordAnswerService, RedissonClient redissonClient) {
         this.redisTemplate = redisTemplate;
         this.userService = userService;
         this.wordMapper = wordMapper;
         this.wordAnswerService = wordAnswerService;
+        this.redissonClient = redissonClient;
     }
 
     /**
@@ -72,6 +86,10 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         //检查当前用户是否登录
         User loginUserPermitNull = userService.getLoginUserPermitNull(request);
         if (loginUserPermitNull == null){
+            if (wordTrainingBeginRequest.getDifficulty().equals(WordTrainingConstant.CHALLENGE)){
+                //如果是挑战模式，。必须登录
+                throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR,"请先登录系统");
+            }
             //暂时没有登录用户
             if (wordTrainingBeginRequest.getTemporaryUserAccount() == null){
                 //没有临时用户
@@ -85,30 +103,40 @@ public class WordTrainingServiceImpl implements WordTrainingService {
                 //有临时用户，检查临时用户是否与登录用户一致
                 //将临时用户的题库数据合并到登录用户的题库中
                 wordTrainingTotalVO = this.mergeWordTrainingList(wordTrainingBeginRequest,userAccount);
+                if (wordTrainingTotalVO != null){
+                    return wordTrainingTotalVO;
+                }
             }
         }
-        //如果选择的难度是练习模式
-        if (wordTrainingBeginRequest.getDifficulty().equals(WordTrainingConstant.PRACTICE)){
-            wordTrainingTotalVO =  this.practice(wordTrainingBeginRequest.getMode(),wordTrainingBeginRequest.getWordTypeList(),userAccount);
-        }
 
-        //如果选择的难度是挑战模式
+        //如果是挑战模式检查当前用户的挑战次数是否充足
         if (wordTrainingBeginRequest.getDifficulty().equals(WordTrainingConstant.CHALLENGE)){
-            //检查当前用户的挑战次数是否充足
-            wordTrainingTotalVO =  this.challenge(wordTrainingBeginRequest.getMode(),wordTrainingBeginRequest.getWordTypeList());
+            // 只有一个线程能获取到锁
+            RLock lock = redissonClient.getLock("wordTraining:user:getWordList:lock:"+userAccount);
+            try {
+                while (true){
+                    if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                        //检查当前用户的挑战次数是否充足
+                        int count = loginUserPermitNull.getChallengeNum();
+                        if (count < 1){
+                            throw new BusinessException(ErrorCode.OPERATION_ERROR,"当前用户的挑战次数不足");
+                        }
+                        if (count >= 1){
+                            break;
+                        }
+                    }
+                }
+            } catch (InterruptedException e) {
+                  log.error("获取锁失败",e.getMessage());
+            }finally {
+                // 只能释放自己的锁
+                if (lock.isHeldByCurrentThread()) {
+                    System.out.println("unLock: " + Thread.currentThread().getId());
+                    lock.unlock();
+                }
+            }
         }
-
-        return wordTrainingTotalVO;
-    }
-
-    /**
-     * 练习难度
-     * @param mode 游戏模式
-     * @param wordTypeList 单词类型
-     * @param userAccount 用户账号
-     * @return 单词训练数据
-     */
-    private WordTrainingTotalVO practice(Integer mode, List<String> wordTypeList,String userAccount){
+        //处理单词数据
         LambdaQueryWrapper<Word> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Word::getIsDelete, 0);
         List<Word> wordList = wordMapper.selectList(queryWrapper);
@@ -129,7 +157,7 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         //筛选单词类型
         filteredWordVOList = filteredWordVOList.stream()
                 .filter(wordVO -> {
-                    Set<String> wordTypeSet = new HashSet<>(wordTypeList);
+                    Set<String> wordTypeSet = new HashSet<>(wordTrainingBeginRequest.getWordTypeList());
                     return !wordVO.getType().isEmpty() && !Collections.disjoint(wordVO.getType(), wordTypeSet);
                 })
                 .collect(Collectors.toList());
@@ -143,60 +171,55 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             //如果没有数据，返回空列表
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"抱歉，暂无该类型组单词，请选择其他类型组");
         }
-        WordTrainingTotalVO wordTrainingVO = null;
 
-        //如果是英语选义
-        if (WordTrainingConstant.ENGLISH_SELECTIONS == mode ){
-            //遍历单词列表
-             wordTrainingVO = this.getEnglishSelections(filteredWordVOList, wordList,userAccount);
-        }
-        //如果是中文选义
-        if (WordTrainingConstant.CHINESE_SELECTIONS == mode){
+        //根据训练模式生成题库数据
+        wordTrainingTotalVO = this.selectMode(wordTrainingBeginRequest.getDifficulty(),wordTrainingBeginRequest.getMode(),filteredWordVOList,wordList,userAccount);
 
-        }
-
-        //如果是填空拼写
-        if (WordTrainingConstant.WORD_SPELL == mode){
-
-        }
-        return wordTrainingVO;
+        return wordTrainingTotalVO;
     }
 
+
     /**
-     * 挑战难度
+     * 根据游戏模式生成题库
+     * @param difficulty 游戏难度
      * @param mode 游戏模式
-     * @param wordTypeList 单词类型
+     * @param filteredWordVOList 过滤后的题库数据
+     * @param wordList 总单词数据
+     * @param userAccount 用户账号
      * @return 单词训练数据
      */
-    private  WordTrainingTotalVO challenge(Integer mode, List<String> wordTypeList) {
+    private  WordTrainingTotalVO selectMode(Integer difficulty, Integer mode, List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount) {
+        WordTrainingTotalVO wordTrainingVO = null;
         //如果是英语选义
         if (WordTrainingConstant.ENGLISH_SELECTIONS == mode){
-
+//遍历单词列表
+            wordTrainingVO = this.getEnglishSelections(difficulty,filteredWordVOList, wordList,userAccount);
         }
 
         //如果是中文选义
         if (WordTrainingConstant.CHINESE_SELECTIONS == mode){
-
+            wordTrainingVO = this.getChineseSelections(difficulty,filteredWordVOList, wordList,userAccount);
         }
 
         //如果是填空拼写
         if (WordTrainingConstant.WORD_SPELL == mode){
-
+            wordTrainingVO = this.getWordSpell(difficulty,filteredWordVOList, wordList,userAccount);
         }
-        return null;
+        return wordTrainingVO;
     }
 
 
     /**
      * 生成英语选义题目
+     * @param difficulty 难度
      * @param filteredWordVOList 单词列表
      * @param wordList 未被筛选的单词信息
      * @param userAccount 用户账号
      * @return 单词训练数据
      */
-    private WordTrainingTotalVO getEnglishSelections(List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount){
+    private WordTrainingTotalVO getEnglishSelections(Integer difficulty , List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount){
         //redis的key
-        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:practice:englishSelections:%s",userAccount);
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(difficulty),WordTrainingModeEnum.ENGLISH_SELECTIONS,userAccount);
         // 查询该key是否有数据
         Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
         if (Boolean.TRUE.equals(hasKey)) {
@@ -211,7 +234,6 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             wordTrainingVO.setWord(wordVO.getWord());
             wordTrainingVO.setPronounceEnglish(wordVO.getPronounceEnglish());
             wordTrainingVO.setPronounceAmerica(wordVO.getPronounceAmerica());
-            int oldSize = wordList.size();
             //删除当前单词的信息
             Word word = wordMapper.selectById(wordVO.getId());
             wordList.remove(word);
@@ -257,21 +279,174 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             //将删除的单词数据重新添加进wordList中
             wordList.add(word);
         }
-        redisTemplate.opsForHash().put(redisKeyByTraining,IS_TRAINING_END,false);
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.IS_TRAINING_END,false);
+        //开始时间
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.BEGIN_TIME, LocalDateTime.now().toString());
+        if (difficulty.equals(WordTrainingConstant.CHALLENGE)){
+            //添加生命值
+            redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.HEALTH_VALUE,WordTrainingConstant.DEFAULT_HEALTH_VALUE);
+        }
         //设置过期时间
         redisTemplate.expire(redisKeyByTraining,WordTrainingConstant.EXPIRE_TIME, TimeUnit.SECONDS);
         WordTrainingVO wordTrainingVO = gson.fromJson((String) redisTemplate.opsForHash().get(redisKeyByTraining, "1"), WordTrainingVO.class);
         WordTrainingTotalVO wordTrainingTotalVO = new WordTrainingTotalVO();
         wordTrainingTotalVO.setWordTrainingVO(wordTrainingVO);
         wordTrainingTotalVO.setTotal(questionNumber  - 1);
+        wordTrainingTotalVO.setHealthValue(WordTrainingConstant.DEFAULT_HEALTH_VALUE);
         return wordTrainingTotalVO;
         }
 
-
-
+    /**
+     * 生成中文选义题目
+     * @param difficulty 难度
+     * @param filteredWordVOList 单词列表
+     * @param wordList 未被筛选的单词信息
+     * @param userAccount 用户账号
+     * @return 单词训练数据
+     */
+    private WordTrainingTotalVO getChineseSelections(Integer difficulty , List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount){
+        //redis的key
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(difficulty),WordTrainingModeEnum.CHINESE_SELECTIONS,userAccount);
+        // 查询该key是否有数据
+        Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
+        if (Boolean.TRUE.equals(hasKey)) {
+            // 如果有数据，删除数据
+            redisTemplate.delete(redisKeyByTraining);
+        }
+        int questionNumber  = 1;
+        for (WordListVO wordVO : filteredWordVOList){
+            //生成单词训练数据
+            WordTrainingVO wordTrainingVO = new WordTrainingVO();
+            wordTrainingVO.setWordId(wordVO.getId());
+            int index = random.nextInt(wordVO.getTranslation().size());
+            wordTrainingVO.setTranslation(wordVO.getTranslation().get(index));
+            //删除当前单词的信息
+            Word word = wordMapper.selectById(wordVO.getId());
+            wordList.remove(word);
+            // 词库总长度
+            int size = wordList.size();
+            //生成正确答案的位置
+            int correctIndex = random.nextInt(4);
+            // 生成四个选项
+            List<String> options = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                if (i == correctIndex) {
+                    // 设置正确答案
+                    options.add(wordVO.getWord());
+                } else {
+                    options.add(wordList.get(random.nextInt(size)).getWord());
+                }
+            }
+            // 将选项分别设置到对应的问题属性上
+            wordTrainingVO.setQuestionA(options.get(0));
+            wordTrainingVO.setQuestionB(options.get(1));
+            wordTrainingVO.setQuestionC(options.get(2));
+            wordTrainingVO.setQuestionD(options.get(3));
+            // 设置正确答案的 MD5 加密值
+            wordTrainingVO.setAnswer(Md5Util.encrypt(String.valueOf(correctIndex + 1), REDIS_KEY_PREFIX));
+            wordTrainingVO.setQuestionNumber(questionNumber);
+            wordTrainingVO.setIsTrue(0);
+            //将生产的题目保持在redis中
+            redisTemplate.opsForHash().put(redisKeyByTraining,String.valueOf(questionNumber ),gson.toJson(wordTrainingVO));
+            questionNumber ++;
+            //将删除的单词数据重新添加进wordList中
+            wordList.add(word);
+        }
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.IS_TRAINING_END,false);
+        //开始时间
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.BEGIN_TIME, LocalDateTime.now().toString());
+        if (difficulty.equals(WordTrainingConstant.CHALLENGE)){
+            //添加生命值
+            redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.HEALTH_VALUE,WordTrainingConstant.DEFAULT_HEALTH_VALUE);
+        }
+        //设置过期时间
+        redisTemplate.expire(redisKeyByTraining,WordTrainingConstant.EXPIRE_TIME, TimeUnit.SECONDS);
+        WordTrainingVO wordTrainingVO = gson.fromJson((String) redisTemplate.opsForHash().get(redisKeyByTraining, "1"), WordTrainingVO.class);
+        WordTrainingTotalVO wordTrainingTotalVO = new WordTrainingTotalVO();
+        wordTrainingTotalVO.setWordTrainingVO(wordTrainingVO);
+        wordTrainingTotalVO.setTotal(questionNumber  - 1);
+        wordTrainingTotalVO.setHealthValue(WordTrainingConstant.DEFAULT_HEALTH_VALUE);
+        return wordTrainingTotalVO;
+    }
 
     /**
-     * 合并临时用户的题库数据到登录用户的题库中
+     * TODO 生成填空拼写题目
+     * @param difficulty 难度
+     * @param filteredWordVOList 单词列表
+     * @param wordList 未被筛选的单词信息
+     * @param userAccount 用户账号
+     * @return 单词训练数据
+     */
+    private WordTrainingTotalVO getWordSpell(Integer difficulty , List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount){
+        //redis的key
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(difficulty),WordTrainingModeEnum.CHINESE_SELECTIONS,userAccount);
+        // 查询该key是否有数据
+        Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
+        if (Boolean.TRUE.equals(hasKey)) {
+            // 如果有数据，删除数据
+            redisTemplate.delete(redisKeyByTraining);
+        }
+        int questionNumber  = 1;
+        for (WordListVO wordVO : filteredWordVOList){
+            //生成单词训练数据
+            WordTrainingVO wordTrainingVO = new WordTrainingVO();
+            wordTrainingVO.setWordId(wordVO.getId());
+            int index = random.nextInt(wordVO.getTranslation().size());
+            wordTrainingVO.setTranslation(wordVO.getTranslation().get(index));
+            //删除当前单词的信息
+            Word word = wordMapper.selectById(wordVO.getId());
+            wordList.remove(word);
+            // 词库总长度
+            int size = wordList.size();
+            //生成正确答案的位置
+            int correctIndex = random.nextInt(4);
+            // 生成四个选项
+            List<String> options = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                if (i == correctIndex) {
+                    // 设置正确答案
+                    options.add(wordVO.getWord());
+                } else {
+                    options.add(wordList.get(random.nextInt(size)).getWord());
+                }
+            }
+            // 将选项分别设置到对应的问题属性上
+            wordTrainingVO.setQuestionA(options.get(0));
+            wordTrainingVO.setQuestionB(options.get(1));
+            wordTrainingVO.setQuestionC(options.get(2));
+            wordTrainingVO.setQuestionD(options.get(3));
+            // 设置正确答案的 MD5 加密值
+            wordTrainingVO.setAnswer(Md5Util.encrypt(String.valueOf(correctIndex + 1), REDIS_KEY_PREFIX));
+            wordTrainingVO.setQuestionNumber(questionNumber);
+            wordTrainingVO.setIsTrue(0);
+            //将生产的题目保持在redis中
+            redisTemplate.opsForHash().put(redisKeyByTraining,String.valueOf(questionNumber ),gson.toJson(wordTrainingVO));
+            questionNumber ++;
+            //将删除的单词数据重新添加进wordList中
+            wordList.add(word);
+        }
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.IS_TRAINING_END,false);
+        //开始时间
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.BEGIN_TIME, LocalDateTime.now().toString());
+        if (difficulty.equals(WordTrainingConstant.CHALLENGE)){
+            //添加生命值
+            redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.HEALTH_VALUE,WordTrainingConstant.DEFAULT_HEALTH_VALUE);
+        }
+        //设置过期时间
+        redisTemplate.expire(redisKeyByTraining,WordTrainingConstant.EXPIRE_TIME, TimeUnit.SECONDS);
+        WordTrainingVO wordTrainingVO = gson.fromJson((String) redisTemplate.opsForHash().get(redisKeyByTraining, "1"), WordTrainingVO.class);
+        WordTrainingTotalVO wordTrainingTotalVO = new WordTrainingTotalVO();
+        wordTrainingTotalVO.setWordTrainingVO(wordTrainingVO);
+        wordTrainingTotalVO.setTotal(questionNumber  - 1);
+        wordTrainingTotalVO.setHealthValue(WordTrainingConstant.DEFAULT_HEALTH_VALUE);
+        return wordTrainingTotalVO;
+    }
+
+    /**
+     *
+     * TODO 合并临时用户的题库数据到登录用户的题库中
+     *
+     *
      * @param wordTrainingBeginRequest 用户选择的条件
      * @param userAccount 已登录的用户账号
      * @return 未操作的第一题
@@ -287,12 +462,12 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             //英语选义模式
             if (wordTrainingBeginRequest.getMode().equals(WordTrainingConstant.ENGLISH_SELECTIONS)){
                 //获取临时用户的题库数据
-                String oldRedisKeyByTraining = String.format("wordTraining:getWordTrainingList:practice:englishSelections:%s",wordTrainingBeginRequest.getTemporaryUserAccount());
+                String oldRedisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s",WordTrainingDifficultyEnum.PRACTICE,WordTrainingModeEnum.ENGLISH_SELECTIONS,wordTrainingBeginRequest.getTemporaryUserAccount());
                 // 查询该key是否有数据
                 Boolean hasKey = redisTemplate.hasKey(oldRedisKeyByTraining);
                 if (hasKey != null && hasKey) {
                     // 如果有数据，修改key
-                    String newRedisKeyByTraining = String.format("wordTraining:getWordTrainingList:practice:englishSelections:%s",userAccount);
+                    String newRedisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s",WordTrainingDifficultyEnum.PRACTICE,WordTrainingModeEnum.ENGLISH_SELECTIONS,userAccount);
                     map = redisTemplate.opsForHash().entries(oldRedisKeyByTraining);
                     redisTemplate.opsForHash().putAll(newRedisKeyByTraining,map);
                     redisTemplate.delete(oldRedisKeyByTraining);
@@ -315,7 +490,11 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             if (wordTrainingVO.getIsTrue() == 0) {
                 wordTrainingTotalVO = new WordTrainingTotalVO();
                 wordTrainingTotalVO.setWordTrainingVO(wordTrainingVO);
-                wordTrainingTotalVO.setTotal(map.size());
+                if (wordTrainingBeginRequest.getDifficulty().equals(WordTrainingConstant.PRACTICE)){
+                    wordTrainingTotalVO.setTotal(map.size() - 2);
+                }else{
+                    wordTrainingTotalVO.setTotal(map.size() - 3);
+                }
                 return wordTrainingTotalVO;
             }
         }
@@ -344,26 +523,15 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         }else{
             userAccount = loginUserPermitNull.getUserAccount();
         }
-
-        WordTrainingJudgementVO wordTrainingJudgementVO = null;
-        //如果选择的难度是练习模式
-        if (wordTrainingJudgementDTO.getDifficulty().equals(WordTrainingConstant.PRACTICE)){
-            wordTrainingJudgementVO =  this.getPracticeWordTrainingVO(wordTrainingJudgementDTO.getMode(),wordTrainingJudgementDTO.getQuestionNumber(),userAccount, wordTrainingJudgementDTO.getAnswer());
-        }
-
-        //如果选择的难度是挑战模式
-        if (wordTrainingJudgementDTO.getDifficulty().equals(WordTrainingConstant.CHALLENGE)){
-            wordTrainingJudgementVO =  this.getChallengeWordTrainingVO(wordTrainingJudgementDTO.getMode(),wordTrainingJudgementDTO.getQuestionNumber(),userAccount, wordTrainingJudgementDTO.getAnswer());
-        }
+        WordTrainingJudgementVO wordTrainingJudgementVO = this.getWordTrainingVO(wordTrainingJudgementDTO.getDifficulty(),wordTrainingJudgementDTO.getMode(),wordTrainingJudgementDTO.getQuestionNumber(),userAccount, wordTrainingJudgementDTO.getAnswer());
 
         return wordTrainingJudgementVO;
     }
 
-
-
     /**
-     * 获取练习模式的单词训练数据
+     * 获取单词训练数据
      *
+     * @param difficulty 难度
      * @param mode 模式
      * @param questionNumber 题号
      * @param userAccount 账号
@@ -371,21 +539,9 @@ public class WordTrainingServiceImpl implements WordTrainingService {
      * @return 单词训练数据
      */
     @Transactional(rollbackFor = Exception.class)
-    public WordTrainingJudgementVO getPracticeWordTrainingVO(Integer mode, Integer questionNumber, String userAccount, String answer) {
+    public WordTrainingJudgementVO getWordTrainingVO(Integer difficulty, Integer mode, Integer questionNumber, String userAccount, String answer) {
         String redisKeyByTraining = null;
-        //如果是英语选义
-        if (WordTrainingConstant.ENGLISH_SELECTIONS == mode) {
-            redisKeyByTraining = String.format("wordTraining:getWordTrainingList:practice:englishSelections:%s", userAccount);
-        }
-        //如果是中文选义
-        if (WordTrainingConstant.CHINESE_SELECTIONS == mode) {
-            redisKeyByTraining = String.format("wordTraining:getWordTrainingList:practice:chineseSelections:%s", userAccount);
-        }
-        //如果是填空拼写
-        if (WordTrainingConstant.WORD_SPELL == mode) {
-        redisKeyByTraining = String.format("wordTraining:getWordTrainingList:practice:wordSpell:%s", userAccount);
-        }
-
+        redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(difficulty), WordTrainingModeEnum.getEnumByValue(mode), userAccount);
         //下一题
         WordTrainingVO wordTrainingVONext = null;
         //是否正确
@@ -398,12 +554,14 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         if (wordTrainingVOStr == null || StringUtil.isEmpty(wordTrainingVOStr)){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"题库数据为空!");
         }
+        int healthValue = 0;
         WordTrainingVO wordTrainingVO = gson.fromJson(wordTrainingVOStr, WordTrainingVO.class);
         //判断答案是否正确
         String newAnswer = Md5Util.encrypt(answer, REDIS_KEY_PREFIX);
         if (newAnswer.equals(wordTrainingVO.getAnswer())) {
             //如果答案正确，将答案置为
             wordTrainingVO.setIsTrue(1);
+            wordTrainingVO.setErrorCause("");
             isTrue  = true;
             //将答案记录到redis中
             redisTemplate.opsForHash().put(redisKeyByTraining, String.valueOf(questionNumber), gson.toJson(wordTrainingVO));
@@ -411,7 +569,43 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             //如果答案错误，将答案置为2
             wordTrainingVO.setIsTrue(2);
             //错题原因
-            wordTrainingVO.setErrorCause("词义未理解");
+            if (mode == WordTrainingConstant.ENGLISH_SELECTIONS){
+                wordTrainingVO.setErrorCause("词义未理解");
+            }else if (mode == WordTrainingConstant.CHINESE_SELECTIONS){
+                wordTrainingVO.setErrorCause("词汇未掌握");
+            }else if (mode == WordTrainingConstant.WORD_SPELL){
+                wordTrainingVO.setErrorCause("拼写错误");
+            }
+            //如果是挑战模式，则扣除生命值
+            if (difficulty.equals(WordTrainingConstant.CHALLENGE)) {
+                // 只有一个线程能获取到锁
+                RLock lock = redissonClient.getLock("wordTraining:user:getWordList:health:lock:"+userAccount);
+                try {
+                    while (true){
+                        if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                             healthValue = (int) redisTemplate.opsForHash().get(redisKeyByTraining, WordTrainingConstant.HEALTH_VALUE);
+                            if (healthValue > 0) {
+                                healthValue--;
+                                redisTemplate.opsForHash().put(redisKeyByTraining, WordTrainingConstant.HEALTH_VALUE, healthValue);
+                                break;
+                            }else{
+                                    //将答案记录到redis中
+                                  redisTemplate.opsForHash().put(redisKeyByTraining, String.valueOf(questionNumber), gson.toJson(wordTrainingVO));
+                                  this.endTraining(redisKeyByTraining,userAccount,difficulty);
+                                  return  null;
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    log.error("获取锁失败",e.getMessage());
+                }finally {
+                    // 只能释放自己的锁
+                    if (lock.isHeldByCurrentThread()) {
+                        System.out.println("unLock: " + Thread.currentThread().getId());
+                        lock.unlock();
+                    }
+                }
+            }
             //将答案记录到redis中
             redisTemplate.opsForHash().put(redisKeyByTraining, String.valueOf(questionNumber), gson.toJson(wordTrainingVO));
             //搜索正确单词Id
@@ -421,44 +615,96 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         String wordTrainingVONextStr = (String) redisTemplate.opsForHash().get(redisKeyByTraining, String.valueOf(questionNumber + 1));
         //如果没有下一题，则结束游戏
         if (StringUtils.isBlank(wordTrainingVONextStr) || StringUtil.isEmpty(wordTrainingVONextStr)) {
-            redisTemplate.opsForHash().put(redisKeyByTraining,IS_TRAINING_END,true);
-            //结束游戏
-            if (!userAccount.startsWith("游客")){
-                //将游戏记录保持在数据库中
-                Map<String,Object> wordAnswerMap = redisTemplate.opsForHash().entries(redisKeyByTraining);
-                if(wordAnswerMap == null || wordAnswerMap.isEmpty()){
-                    throw new BusinessException(ErrorCode.SYSTEM_ERROR,"题库数据为空!");
-                }
-                Boolean insert = wordAnswerService.saveWordAnswer(wordAnswerMap,userAccount,WordTrainingConstant.PRACTICE);
-                if (!insert){
-                    throw new BusinessException(ErrorCode.OPERATION_ERROR,"保持用户答题记录失败");
-                }
+            this.endTraining(redisKeyByTraining,userAccount,difficulty);
+            if (difficulty.equals(WordTrainingConstant.CHALLENGE) && (healthValue + 1) > 0 && !newAnswer.equals(wordTrainingVO.getAnswer())){
+                //返回当前这题数据，直到次数用完
+                wordTrainingJudgementVO.setWordTrainingVO(wordTrainingVO);
+                wordTrainingJudgementVO.setIsTrue(isTrue);
+                wordTrainingJudgementVO.setMode(mode);
+                wordTrainingJudgementVO.setDifficulty(difficulty);
+                wordTrainingJudgementVO.setTotal(Math.toIntExact(redisTemplate.opsForHash().size(redisKeyByTraining) - 3));
+                wordTrainingJudgementVO.setHealthValue(healthValue);
+                wordTrainingJudgementVO.setWordId(wordTrainingVO.getWordId());
+                return wordTrainingJudgementVO;
+            }else{
+                return null;
             }
-            return  null;
         }
         //如果有下一题，则返回下一题
         wordTrainingVONext = gson.fromJson(wordTrainingVONextStr, WordTrainingVO.class);
         wordTrainingJudgementVO.setWordTrainingVO(wordTrainingVONext);
         wordTrainingJudgementVO.setIsTrue(isTrue);
         wordTrainingJudgementVO.setMode(mode);
-        wordTrainingJudgementVO.setDifficulty(WordTrainingConstant.PRACTICE);
-        wordTrainingJudgementVO.setTotal(Math.toIntExact(redisTemplate.opsForHash().size(redisKeyByTraining)));
+        wordTrainingJudgementVO.setDifficulty(difficulty);
+        if (difficulty.equals(WordTrainingConstant.CHALLENGE)){
+            wordTrainingJudgementVO.setTotal(Math.toIntExact(redisTemplate.opsForHash().size(redisKeyByTraining) - 3));
+            wordTrainingJudgementVO.setHealthValue(healthValue);
+        }else {
+            wordTrainingJudgementVO.setTotal(Math.toIntExact(redisTemplate.opsForHash().size(redisKeyByTraining) - 2));
+        }
         return wordTrainingJudgementVO;
     }
 
     /**
-     * 获取挑战模式的单词训练数据
-     *
-     * @param mode 模式
-     * @param questionNumber 题号
-     * @param userAccount 账号
-     * @param answer 答案
-     * @return 单词训练数据
+     * 结束训练
+     * @param redisKeyByTraining redisKey
+     * @param userAccount 用户账号
      */
-    private WordTrainingJudgementVO getChallengeWordTrainingVO(Integer mode,Integer questionNumber,String userAccount,String answer){
-        return null;
-    }
 
+    private void endTraining(String redisKeyByTraining,String userAccount,Integer difficulty){
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.IS_TRAINING_END,true);
+        redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.END_TIME, LocalDateTime.now().toString());
+        //结束游戏
+        if (!userAccount.startsWith("游客")){
+            //将游戏记录保持在数据库中
+            Map<String,Object> wordAnswerMap = redisTemplate.opsForHash().entries(redisKeyByTraining);
+            wordAnswerMap.remove(WordTrainingConstant.IS_TRAINING_END);
+            wordAnswerMap.remove(WordTrainingConstant.BEGIN_TIME);
+            wordAnswerMap.remove(WordTrainingConstant.END_TIME);
+            if (difficulty.equals(WordTrainingConstant.CHALLENGE)){
+                wordAnswerMap.remove(WordTrainingConstant.HEALTH_VALUE);
+            }
+            if(wordAnswerMap == null || wordAnswerMap.isEmpty()){
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR,"题库数据为空!");
+            }
+             String wordTrainingVOStr = (String) redisTemplate.opsForHash().get(redisKeyByTraining,"1");
+             WordTrainingVO wordTrainingVO = gson.fromJson(wordTrainingVOStr, WordTrainingVO.class);
+            if(wordTrainingVO.getIsTrue() != 0){
+                Boolean insert = wordAnswerService.saveWordAnswer(wordAnswerMap,userAccount,difficulty);
+                if (!insert){
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR,"保存用户答题记录失败");
+                }
+            }
+            //挑战次数减1
+            if (difficulty.equals(WordTrainingConstant.CHALLENGE)) {
+                RLock lock = redissonClient.getLock("wordTraining:user:getWordList:lock:" + userAccount);
+                try {
+                    while (true){
+                        if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                            LambdaUpdateWrapper<User> updateWrapper = new LambdaUpdateWrapper<>();
+                            updateWrapper.eq(User::getUserAccount, userAccount)
+                                    .eq(User::getIsDelete,0)
+                                    .setSql("challenge_num = challenge_num - 1");
+                            boolean update = userService.update(updateWrapper);
+                            if (!update) {
+                                throw new BusinessException(ErrorCode.OPERATION_ERROR, "挑战次数减1失败!");
+                            }else{
+                                break;
+                            }
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    log.error("获取锁失败",e.getMessage());
+                }finally {
+                    // 只能释放自己的锁
+                    if (lock.isHeldByCurrentThread()) {
+                        System.out.println("unLock: " + Thread.currentThread().getId());
+                        lock.unlock();
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * 结算训练结果
@@ -467,16 +713,20 @@ public class WordTrainingServiceImpl implements WordTrainingService {
      * @return 训练结果信息
      */
     @Override
-    public WordTrainingEndVO endTraining(WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request) {
+    public WordTrainingEndVO balanceTraining(WordTrainingEndDTO wordTrainingEndDTO, HttpServletRequest request) throws ParseException {
        //获取redisKey
         String redisKeyByTraining = this.getRedisKey(wordTrainingEndDTO,request);
         // 如果有数据，获取数据
-        Map<String, WordTrainingVO> map = redisTemplate.opsForHash().entries(redisKeyByTraining);
+        Map<String, Object> map = redisTemplate.opsForHash().entries(redisKeyByTraining);
         if (map.isEmpty()){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"暂无训练记录!");
         }
         WordTrainingEndVO wordTrainingEndVO = new WordTrainingEndVO();
-        wordTrainingEndVO.setTotal(map.size() - 1);
+        if (wordTrainingEndDTO.getDifficulty().equals(WordTrainingConstant.CHALLENGE)){
+            wordTrainingEndVO.setTotal(map.size() - 4);
+        }else{
+            wordTrainingEndVO.setTotal(map.size() - 3);
+        }
 
         //正确的单词集合
         Map<Long,String> correctWordMap = new HashMap<>();
@@ -489,23 +739,40 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         //积分数
         int score = 0;
         Gson gson = new Gson();
-        for (Map.Entry<String, WordTrainingVO> entry : map.entrySet()) {
-            if (!entry.getKey().equals(IS_TRAINING_END)){
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (!entry.getKey().equals(WordTrainingConstant.IS_TRAINING_END) && !entry.getKey().equals(WordTrainingConstant.BEGIN_TIME) && !entry.getKey().equals(WordTrainingConstant.END_TIME) && !entry.getKey().equals(WordTrainingConstant.HEALTH_VALUE)){
                 WordTrainingVO wordTrainingVO = gson.fromJson(String.valueOf(entry.getValue()),WordTrainingVO.class);
                 if (wordTrainingVO.getIsTrue() == 1) {
                     correctCount++;
-                    correctWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
                     finishNum++;
                     if(wordTrainingEndDTO.getDifficulty().equals(WordTrainingConstant.CHALLENGE)){
                         score++;
                     }
+                    if (WordTrainingConstant.CHINESE_SELECTIONS == wordTrainingEndDTO.getMode()){
+                        correctWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getTranslation());
+                    }else{
+                        correctWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
+                    }
+
                 } else if (wordTrainingVO.getIsTrue() == 2){
                     errorCount++;
-                    errorWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
                     finishNum++;
+                    if (WordTrainingConstant.CHINESE_SELECTIONS == wordTrainingEndDTO.getMode()){
+                        errorWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getTranslation());
+                    } else {
+                        correctWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
+                    }
                 }
             }
         }
+        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+        Date beginTime = df.parse(map.get(WordTrainingConstant.BEGIN_TIME).toString());
+        Date endTime = df.parse(map.get(WordTrainingConstant.END_TIME).toString());
+
+        long diffInMillies = Math.abs(endTime.getTime() - beginTime.getTime());
+        long diffInMinutes = TimeUnit.MILLISECONDS.toSeconds(diffInMillies);
+
+        wordTrainingEndVO.setFinishTime(diffInMinutes);
         wordTrainingEndVO.setCorrectWordMap(correctWordMap);
         wordTrainingEndVO.setErrorWordMap(errorWordMap);
         wordTrainingEndVO.setCorrectNum(correctCount);
@@ -553,47 +820,97 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             userAccount = loginUserPermitNull.getUserAccount();
         }
 
-        String difficulty = null;
-        if (wordTrainingEndDTO.getDifficulty().equals(WordTrainingConstant.PRACTICE)){
-            difficulty = "practice";
-        }else{
-            difficulty = "challenge";
-        }
-        String mode = null;
-        //如果是英语选义
-        if (WordTrainingConstant.ENGLISH_SELECTIONS == wordTrainingEndDTO.getMode()) {
-            mode = "englishSelections";
-        }
-        //如果是中文选义
-        if (WordTrainingConstant.CHINESE_SELECTIONS == wordTrainingEndDTO.getMode()) {
-            mode = "chineseSelections";
-        }
-        //如果是填空拼写
-        if (WordTrainingConstant.WORD_SPELL == wordTrainingEndDTO.getMode()) {
-            mode = "wordSpell";
-        }
-        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", difficulty,mode,userAccount);
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(wordTrainingEndDTO.getDifficulty()),WordTrainingModeEnum.getEnumByValue(wordTrainingEndDTO.getMode()),userAccount);
         //查询该key是否有数据
         Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
         if (Boolean.FALSE.equals(hasKey)) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"暂无训练记录");
         }
-
-        redisTemplate.opsForHash().put(redisKeyByTraining,IS_TRAINING_END,true);
-
-        if (!userAccount.startsWith("游客")){
-            //将游戏记录保持在数据库中
-            Map<String,Object> wordAnswerMap = redisTemplate.opsForHash().entries(redisKeyByTraining);
-            wordAnswerMap.remove(IS_TRAINING_END);
-            if(wordAnswerMap == null || wordAnswerMap.isEmpty()){
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR,"题库数据为空!");
-            }
-            Boolean insert = wordAnswerService.saveWordAnswer(wordAnswerMap,userAccount,WordTrainingConstant.PRACTICE);
-            if (!insert){
-                throw new BusinessException(ErrorCode.OPERATION_ERROR,"保持用户答题记录失败");
-            }
-        }
+        this.endTraining(redisKeyByTraining,userAccount,wordTrainingEndDTO.getDifficulty());
         return true;
+    }
+
+    /**
+     * 单词训练时间结束
+     *
+     * @param wordTrainingJudgementDTO 答案
+     * @param request    获取登录用户信息
+     * @return 判断结果
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public WordTrainingJudgementVO wordTrainingTimeEnd(WordTrainingJudgementDTO wordTrainingJudgementDTO, HttpServletRequest request) {
+        User loginUserPermitNull = userService.getLoginUserPermitNull(request);
+        if (loginUserPermitNull == null){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"请先登录!");
+        }
+        String userAccount = loginUserPermitNull.getUserAccount();
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(wordTrainingJudgementDTO.getDifficulty()),WordTrainingModeEnum.getEnumByValue(wordTrainingJudgementDTO.getMode()),userAccount);
+        //查询该key是否有数据
+        Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
+        if (Boolean.FALSE.equals(hasKey)) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"暂无训练记录");
+        }
+        //根据题号查看是否有数据
+        String wordTrainingVOStr = (String) redisTemplate.opsForHash().get(redisKeyByTraining, String.valueOf(wordTrainingJudgementDTO.getQuestionNumber()));
+        if (wordTrainingVOStr == null || StringUtil.isEmpty(wordTrainingVOStr)){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"题库数据为空!");
+        }
+
+        int healthValue = 0;
+        WordTrainingVO wordTrainingVO = gson.fromJson(wordTrainingVOStr, WordTrainingVO.class);
+        wordTrainingVO.setIsTrue(2);
+        wordTrainingVO.setErrorCause("答题超时");
+        //将答案记录到redis中
+        redisTemplate.opsForHash().put(redisKeyByTraining, String.valueOf(wordTrainingJudgementDTO.getQuestionNumber()), gson.toJson(wordTrainingVO));
+        // 只有一个线程能获取到锁
+        RLock lock = redissonClient.getLock("wordTraining:user:getWordList:health:lock:" + userAccount);
+        try {
+            while (true){
+                if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                        healthValue = (int) redisTemplate.opsForHash().get(redisKeyByTraining, WordTrainingConstant.HEALTH_VALUE);
+                        if (healthValue > 0) {
+                            healthValue--;
+                            redisTemplate.opsForHash().put(redisKeyByTraining, WordTrainingConstant.HEALTH_VALUE, healthValue);
+                            break;
+                        }else{
+                            //将答案记录到redis中
+                            redisTemplate.opsForHash().put(redisKeyByTraining, String.valueOf(wordTrainingJudgementDTO.getQuestionNumber()), gson.toJson(wordTrainingVO));
+                            this.endTraining(redisKeyByTraining,userAccount,wordTrainingJudgementDTO.getDifficulty());
+                            return  null;
+                        }
+                    }
+                }
+            } catch (InterruptedException e) {
+                log.error("获取锁失败",e.getMessage());
+            }finally {
+                // 只能释放自己的锁
+                if (lock.isHeldByCurrentThread()) {
+                    System.out.println("unLock: " + Thread.currentThread().getId());
+                    lock.unlock();
+                }
+            }
+        //获取下一题
+        String wordTrainingVONextStr = (String) redisTemplate.opsForHash().get(redisKeyByTraining, String.valueOf(wordTrainingJudgementDTO.getQuestionNumber() + 1));
+        //如果没有下一题，则结束游戏
+        if (StringUtils.isBlank(wordTrainingVONextStr) || StringUtil.isEmpty(wordTrainingVONextStr)) {
+            this.endTraining(redisKeyByTraining,userAccount,wordTrainingJudgementDTO.getDifficulty());
+            return null;
+        }
+        WordTrainingVO wordTrainingVONext = gson.fromJson(wordTrainingVONextStr, WordTrainingVO.class);
+        WordTrainingJudgementVO wordTrainingJudgementVO = new WordTrainingJudgementVO();
+        wordTrainingJudgementVO.setWordTrainingVO(wordTrainingVONext);
+        wordTrainingJudgementVO.setIsTrue(false);
+        wordTrainingJudgementVO.setMode(wordTrainingJudgementDTO.getMode());
+        wordTrainingJudgementVO.setDifficulty(wordTrainingJudgementDTO.getDifficulty());
+        if (wordTrainingJudgementDTO.getDifficulty().equals(WordTrainingConstant.CHALLENGE)){
+            wordTrainingJudgementVO.setTotal(Math.toIntExact(redisTemplate.opsForHash().size(redisKeyByTraining) - 3));
+            wordTrainingJudgementVO.setHealthValue(healthValue);
+        }else {
+            wordTrainingJudgementVO.setTotal(Math.toIntExact(redisTemplate.opsForHash().size(redisKeyByTraining) - 2));
+        }
+        wordTrainingJudgementVO.setWordId(wordTrainingVO.getWordId());
+        return wordTrainingJudgementVO;
     }
 
 
@@ -615,36 +932,21 @@ public class WordTrainingServiceImpl implements WordTrainingService {
         }else if (StringUtils.isNotBlank(loginUserPermitNull.getUserAccount())){
             userAccount = loginUserPermitNull.getUserAccount();
         }
-        String difficulty = null;
-        if (wordTrainingEndDTO.getDifficulty().equals(WordTrainingConstant.PRACTICE)){
-            difficulty = "practice";
-        }else{
-            difficulty = "challenge";
-        }
-        String mode = null;
-        //如果是英语选义
-        if (WordTrainingConstant.ENGLISH_SELECTIONS == wordTrainingEndDTO.getMode()) {
-            mode = "englishSelections";
-        }
-        //如果是中文选义
-        if (WordTrainingConstant.CHINESE_SELECTIONS == wordTrainingEndDTO.getMode()) {
-            mode = "chineseSelections";
-        }
-        //如果是填空拼写
-        if (WordTrainingConstant.WORD_SPELL == wordTrainingEndDTO.getMode()) {
-            mode = "wordSpell";
-        }
-        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", difficulty,mode,userAccount);
+
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(wordTrainingEndDTO.getDifficulty()),WordTrainingModeEnum.getEnumByValue(wordTrainingEndDTO.getMode()),userAccount);
         //查询该key是否有数据
         Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
         if (Boolean.FALSE.equals(hasKey)) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"暂无训练记录");
         }
-        boolean isTrainingEnd = (boolean) redisTemplate.opsForHash().get(redisKeyByTraining, IS_TRAINING_END);
+        boolean isTrainingEnd = (boolean) redisTemplate.opsForHash().get(redisKeyByTraining, WordTrainingConstant.IS_TRAINING_END);
         if (!isTrainingEnd){
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"请先完成本次训练!");
         }
         return redisKeyByTraining;
     }
+
+
+
 
 }

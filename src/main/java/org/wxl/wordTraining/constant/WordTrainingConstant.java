@@ -35,6 +35,29 @@ public interface WordTrainingConstant {
     int EXPIRE_TIME = 60 * 60   * 3; // 3小时
 
 
+   // --------------------------------------- 存储的数据 --------
+    /**
+     * 是否正在练习 0：练习中，1：已结束
+     */
+     String IS_TRAINING_END = "0";
+    /**
+     * 开始时间
+     */
+    String BEGIN_TIME = "-1";
+    /**
+     * 结束时间
+     */
+    String END_TIME = "-2";
+    /**
+     * 生命值
+     */
+    String HEALTH_VALUE = "-3";
+
+
+ /**
+  * 默认生命值
+  */
+  int DEFAULT_HEALTH_VALUE = 3;
 
 
 
