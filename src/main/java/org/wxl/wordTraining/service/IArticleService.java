@@ -8,6 +8,7 @@ import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.article.ArticleByUserIdVO;
 import org.wxl.wordTraining.model.vo.article.ArticleNumberVO;
 import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
+import org.wxl.wordTraining.model.vo.article.ArticleOtherVO;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -105,4 +106,12 @@ public interface IArticleService extends IService<TbArticle> {
      * @return 返回的文章信息
      */
     ArticleByUserIdVO getArticleUpdateById(Long articleId);
+
+    /**
+     * 获取其他相关文章:推荐文章，该文章作者其他文章
+     * @param articleId 文章id
+     * @param request 获取登录用户
+     * @return 推荐文章，该文章作者其他文章列表
+     */
+    ArticleOtherVO getArticleOther(Long articleId,HttpServletRequest request);
 }

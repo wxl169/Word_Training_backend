@@ -4,6 +4,7 @@ import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -20,6 +21,9 @@ public class WordTrainingVO implements Serializable {
 
     @ApiModelProperty(value = "翻译")
     private String translation;
+
+    @ApiModelProperty(value = "翻译集合")
+    private List<String> translationList;
 
     @ApiModelProperty(value = "英式发音")
     private String pronounceEnglish;

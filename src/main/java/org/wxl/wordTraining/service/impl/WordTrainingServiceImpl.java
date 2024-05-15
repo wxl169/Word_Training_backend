@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import io.lettuce.core.RedisClient;
 import jodd.util.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -189,23 +188,23 @@ public class WordTrainingServiceImpl implements WordTrainingService {
      * @return 单词训练数据
      */
     private  WordTrainingTotalVO selectMode(Integer difficulty, Integer mode, List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount) {
-        WordTrainingTotalVO wordTrainingVO = null;
+        WordTrainingTotalVO wordTrainingTotalVO = null;
         //如果是英语选义
         if (WordTrainingConstant.ENGLISH_SELECTIONS == mode){
 //遍历单词列表
-            wordTrainingVO = this.getEnglishSelections(difficulty,filteredWordVOList, wordList,userAccount);
+            wordTrainingTotalVO = this.getEnglishSelections(difficulty,filteredWordVOList, wordList,userAccount);
         }
 
         //如果是中文选义
         if (WordTrainingConstant.CHINESE_SELECTIONS == mode){
-            wordTrainingVO = this.getChineseSelections(difficulty,filteredWordVOList, wordList,userAccount);
+            wordTrainingTotalVO = this.getChineseSelections(difficulty,filteredWordVOList, wordList,userAccount);
         }
 
         //如果是填空拼写
         if (WordTrainingConstant.WORD_SPELL == mode){
-            wordTrainingVO = this.getWordSpell(difficulty,filteredWordVOList, wordList,userAccount);
+            wordTrainingTotalVO = this.getWordSpell(difficulty,filteredWordVOList,userAccount);
         }
-        return wordTrainingVO;
+        return wordTrainingTotalVO;
     }
 
 
@@ -320,6 +319,9 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             wordTrainingVO.setWordId(wordVO.getId());
             int index = random.nextInt(wordVO.getTranslation().size());
             wordTrainingVO.setTranslation(wordVO.getTranslation().get(index));
+            //处理word
+            wordTrainingVO.setWord(wordVO.getWord());
+
             //删除当前单词的信息
             Word word = wordMapper.selectById(wordVO.getId());
             wordList.remove(word);
@@ -370,16 +372,14 @@ public class WordTrainingServiceImpl implements WordTrainingService {
     }
 
     /**
-     * TODO 生成填空拼写题目
      * @param difficulty 难度
      * @param filteredWordVOList 单词列表
-     * @param wordList 未被筛选的单词信息
      * @param userAccount 用户账号
      * @return 单词训练数据
      */
-    private WordTrainingTotalVO getWordSpell(Integer difficulty , List<WordListVO> filteredWordVOList,List<Word> wordList,String userAccount){
+    private WordTrainingTotalVO getWordSpell(Integer difficulty , List<WordListVO> filteredWordVOList,String userAccount){
         //redis的key
-        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(difficulty),WordTrainingModeEnum.CHINESE_SELECTIONS,userAccount);
+        String redisKeyByTraining = String.format("wordTraining:getWordTrainingList:%s:%s:%s", WordTrainingDifficultyEnum.getEnumByValue(difficulty),WordTrainingModeEnum.WORD_SPELL,userAccount);
         // 查询该key是否有数据
         Boolean hasKey = redisTemplate.hasKey(redisKeyByTraining);
         if (Boolean.TRUE.equals(hasKey)) {
@@ -391,39 +391,63 @@ public class WordTrainingServiceImpl implements WordTrainingService {
             //生成单词训练数据
             WordTrainingVO wordTrainingVO = new WordTrainingVO();
             wordTrainingVO.setWordId(wordVO.getId());
-            int index = random.nextInt(wordVO.getTranslation().size());
-            wordTrainingVO.setTranslation(wordVO.getTranslation().get(index));
-            //删除当前单词的信息
-            Word word = wordMapper.selectById(wordVO.getId());
-            wordList.remove(word);
+            wordTrainingVO.setTranslationList(wordVO.getTranslation());
+            //处理word
+            //计算单词的长度
+            int wordSize   = wordVO.getWord().length();
+            //需要转换为_的个数为单词长度的一半中的随机数，但是最少为1，最大为4
+            int needChangeNum = Math.max(1, Math.min(4, random.nextInt(wordSize / 2) + 1));
+            //转为_的起始位置
+            int changeStartIndex = random.nextInt(wordSize - needChangeNum);
+            // 从changeStartIndex开始，changeNum个位置需要转换为_
+            StringBuilder wordBuilder = new StringBuilder(wordVO.getWord());
+            // 记录被改变的字母组合
+            StringBuilder changeBuilder = new StringBuilder();
+            for (int i = 0; i < needChangeNum; i++) {
+                changeBuilder.append(wordBuilder.charAt(changeStartIndex + i));
+                if (i == 0) {
+                    wordBuilder.setCharAt(changeStartIndex + i, '_');
+                } else {
+                    // 清除后续位置的字符
+                    wordBuilder.setCharAt(changeStartIndex + i, ' ');
+                }
+            }
+            //清除wordBuilder中的空格
+
+            wordTrainingVO.setWord(wordBuilder.toString().replaceAll("\\s+", ""));
+
             // 词库总长度
-            int size = wordList.size();
+            int length = WordTrainingConstant.WORD_COMBINATION.length;
+            //去除相同的组合
+            List<String> list = Arrays.stream(WordTrainingConstant.WORD_COMBINATION).filter(word -> {
+                if (word.contentEquals(changeBuilder)) {
+                    return false;
+                }
+                return true;
+            }).collect(Collectors.toList());
+
             //生成正确答案的位置
-            int correctIndex = random.nextInt(4);
+            int correctIndex = random.nextInt(9);
             // 生成四个选项
-            List<String> options = new ArrayList<>();
-            for (int i = 0; i < 4; i++) {
+            Set<String> options = new HashSet<>();
+            for (int i = 0; i < 9; i++) {
                 if (i == correctIndex) {
                     // 设置正确答案
-                    options.add(wordVO.getWord());
+                    options.add(changeBuilder.toString());
                 } else {
-                    options.add(wordList.get(random.nextInt(size)).getWord());
+                    options.add(list.get(random.nextInt(length)));
                 }
             }
             // 将选项分别设置到对应的问题属性上
-            wordTrainingVO.setQuestionA(options.get(0));
-            wordTrainingVO.setQuestionB(options.get(1));
-            wordTrainingVO.setQuestionC(options.get(2));
-            wordTrainingVO.setQuestionD(options.get(3));
+            wordTrainingVO.setQuestionSet(options);
             // 设置正确答案的 MD5 加密值
-            wordTrainingVO.setAnswer(Md5Util.encrypt(String.valueOf(correctIndex + 1), REDIS_KEY_PREFIX));
+            wordTrainingVO.setAnswer(Md5Util.encrypt(changeBuilder.toString(), REDIS_KEY_PREFIX));
             wordTrainingVO.setQuestionNumber(questionNumber);
             wordTrainingVO.setIsTrue(0);
             //将生产的题目保持在redis中
-            redisTemplate.opsForHash().put(redisKeyByTraining,String.valueOf(questionNumber ),gson.toJson(wordTrainingVO));
+            redisTemplate.opsForHash().put(redisKeyByTraining,String.valueOf(questionNumber),gson.toJson(wordTrainingVO));
             questionNumber ++;
             //将删除的单词数据重新添加进wordList中
-            wordList.add(word);
         }
         redisTemplate.opsForHash().put(redisKeyByTraining,WordTrainingConstant.IS_TRAINING_END,false);
         //开始时间
@@ -445,7 +469,6 @@ public class WordTrainingServiceImpl implements WordTrainingService {
     /**
      *
      * TODO 合并临时用户的题库数据到登录用户的题库中
-     *
      *
      * @param wordTrainingBeginRequest 用户选择的条件
      * @param userAccount 已登录的用户账号
@@ -753,14 +776,13 @@ public class WordTrainingServiceImpl implements WordTrainingService {
                     }else{
                         correctWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
                     }
-
                 } else if (wordTrainingVO.getIsTrue() == 2){
                     errorCount++;
                     finishNum++;
                     if (WordTrainingConstant.CHINESE_SELECTIONS == wordTrainingEndDTO.getMode()){
                         errorWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getTranslation());
                     } else {
-                        correctWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
+                        errorWordMap.put(wordTrainingVO.getWordId(), wordTrainingVO.getWord());
                     }
                 }
             }

@@ -12,6 +12,7 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.constant.CommonConstant;
 import org.wxl.wordTraining.constant.JWTConstant;
@@ -27,9 +28,11 @@ import org.wxl.wordTraining.model.enums.UserRoleEnum;
 import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.model.vo.user.UserListVO;
+import org.wxl.wordTraining.model.vo.user.UserPointRankVO;
 import org.wxl.wordTraining.model.vo.user.UserVO;
 import org.wxl.wordTraining.service.UserService;
 
+import java.io.Serializable;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -498,6 +501,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setUserPassword(encryptNewPassword);
         }
         return this.updateById(user);
+    }
+
+    /**
+     * 获取积分排行榜信息
+     * @return 积分排行榜信息
+     */
+    @Override
+    public List<UserPointRankVO> getPointsRanking() {
+        String redisKey = "wordTraining:user:pointsRanking";
+        List<UserPointRankVO> userPointRankVOS = new ArrayList<>();
+        //检查该redisKey是否存在
+        if (redisTemplate.hasKey(redisKey)){
+            //如果存在则直接取值
+            //取排行中前二十的数据，按从大到小排序
+            Set<ZSetOperations.TypedTuple<Object>> userIdSet = redisTemplate.opsForZSet().reverseRangeWithScores(redisKey, 0, 9);
+            List<User> userList = new ArrayList<>();
+            if (userList != null && userIdSet.size() > 0){
+                userIdSet.forEach(userId->{
+                    User user = userMapper.selectById((Serializable) userId.getValue());
+                    userList.add(user);
+                });
+                userPointRankVOS = BeanCopyUtils.copyBeanList(userList, UserPointRankVO.class);
+            }else{
+                //如果不存在则取值
+                LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.orderByDesc(User::getPointNumber)
+                        .ne(User::getPointNumber,0)
+                        .last("LIMIT 10");
+                userList.forEach(user -> redisTemplate.opsForZSet().add(redisKey,user.getId(),user.getPointNumber()));
+                userPointRankVOS = BeanCopyUtils.copyBeanList(userMapper.selectList(queryWrapper), UserPointRankVO.class);
+            }
+        }else{
+            //如果不存在则取值
+            LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.orderByDesc(User::getPointNumber)
+                    .ne(User::getPointNumber,0)
+                    .last("LIMIT 10");
+            List<User> userList = userMapper.selectList(queryWrapper);
+            userList.forEach(user -> redisTemplate.opsForZSet().add(redisKey,user.getId(),user.getPointNumber()));
+            userPointRankVOS = BeanCopyUtils.copyBeanList(userList, UserPointRankVO.class);
+        }
+        //设置过期时间
+        redisTemplate.expire(redisKey,6,TimeUnit.HOURS);
+
+        return userPointRankVOS;
     }
 
 

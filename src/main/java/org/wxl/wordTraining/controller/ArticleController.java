@@ -20,6 +20,7 @@ import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.article.ArticleByUserIdVO;
 import org.wxl.wordTraining.model.vo.article.ArticleNumberVO;
 import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
+import org.wxl.wordTraining.model.vo.article.ArticleOtherVO;
 import org.wxl.wordTraining.service.IArticleService;
 
 import javax.servlet.http.HttpServletRequest;
@@ -301,6 +302,22 @@ public class ArticleController {
         }
         ArticleByUserIdVO article = articleService.getArticleUpdateById(idRequest.getId());
         return ResultUtils.success(article);
+    }
+
+
+    /**
+     * 获取其他相关文章:推荐文章，该文章作者其他文章
+     * @param idRequest 文章id
+     * @param request 获取登录用户
+     * @return 推荐文章，该文章作者其他文章列表
+     */
+    @PostMapping("/get/other")
+    @JwtToken
+    public BaseResponse<ArticleOtherVO> getArticleOther(@RequestBody IdRequest idRequest,HttpServletRequest request) {
+        if (idRequest == null || idRequest.getId() == null || idRequest.getId() <= 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return ResultUtils.success(articleService.getArticleOther(idRequest.getId(),request));
     }
 
 }

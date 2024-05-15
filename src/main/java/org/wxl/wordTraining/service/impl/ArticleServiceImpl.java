@@ -522,9 +522,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
         //如果输入了关键字，则根据文章的标题和描述搜索文章
         if (StringUtils.isNotBlank(articleUserWriteDTO.getContent())){
             String content = articleUserWriteDTO.getContent();
-            queryWrapper.like(TbArticle::getTitle,content)
-                    .or()
-                    .like(TbArticle::getDescription,content);
+            queryWrapper.and(wrapper ->
+                    wrapper.like(TbArticle::getTitle,content)
+                            .or().like(TbArticle::getDescription,content)
+            );
         }
         //获取用户筛选的状态
         ArticleWriteStatusEnum enumByValue = ArticleWriteStatusEnum.getEnumByValue(articleUserWriteDTO.getStatus());
@@ -634,6 +635,53 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
             articleByUserIdVO.setTagList(tagList);
         }
         return articleByUserIdVO;
+    }
+
+    /**
+     * 获取其他相关文章:推荐文章，该文章作者其他文章
+     * @param articleId 文章id
+     * @param request 获取登录用户
+     * @return 推荐文章，该文章作者其他文章列表
+     */
+    @Override
+    public ArticleOtherVO getArticleOther(Long articleId,HttpServletRequest request) {
+        TbArticle article = this.getById(articleId);
+        if (article == null){
+            throw new BusinessException(ErrorCode.NULL_ERROR,"暂无该文章");
+        }
+        ArticleOtherVO articleOtherVO = new ArticleOtherVO();
+        //推荐文章(根据标题，内容找到相似文章）
+        LambdaQueryWrapper<TbArticle> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(TbArticle::getIsDelete,0)
+                .eq(TbArticle::getStatus,ArticleConstant.NORMAL_RELEASE)
+                .eq(TbArticle::getPermissions,ArticleConstant.OPEN)
+                .ne(TbArticle::getId,articleId)
+                .and(wrapper ->
+                        wrapper.like(TbArticle::getTitle,article.getTitle())
+                                .or().like(TbArticle::getDescription,article.getDescription())
+                )
+                .orderByDesc(TbArticle::getVisitNumber)
+                .last("limit 6");
+        List<TbArticle> recommendArticleList = articleMapper.selectList(queryWrapper);
+        if (recommendArticleList!=null && !recommendArticleList.isEmpty()){
+            articleOtherVO.setRecommendArticleList(BeanCopyUtils.copyBeanList(recommendArticleList, ArticleVO.class));
+        }
+
+        //该作者其他文章
+        LambdaQueryWrapper<TbArticle> queryWrapper2 = new LambdaQueryWrapper<>();
+        queryWrapper2.eq(TbArticle::getUserId,article.getUserId())
+                .eq(TbArticle::getIsDelete,0)
+                .eq(TbArticle::getStatus,ArticleConstant.NORMAL_RELEASE)
+                .eq(TbArticle::getPermissions,ArticleConstant.OPEN)
+                .ne(TbArticle::getId,articleId)
+                .orderByDesc(TbArticle::getVisitNumber)
+                .last("limit 6");
+        List<TbArticle> otherArticleList = articleMapper.selectList(queryWrapper2);
+
+        if (otherArticleList!=null && !otherArticleList.isEmpty()){
+            articleOtherVO.setOtherArticleList(BeanCopyUtils.copyBeanList(otherArticleList, ArticleVO.class));
+        }
+        return articleOtherVO;
     }
 
 

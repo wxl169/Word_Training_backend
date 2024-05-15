@@ -60,5 +60,19 @@ public interface WordTrainingConstant {
   int DEFAULT_HEALTH_VALUE = 3;
 
 
+ /**
+  * 单词组合
+  */
+ String[] WORD_COMBINATION = {"able", "al", "ance", "ant", "ate", "ed", "en", "er", "est", "ful", "ic", "ing",
+         "ion", "ity", "ive", "less", "ly", "ment", "ness", "ous", "anti", "pre", "post", "re", "un", "ary",
+         "dom", "ish", "ism", "ist", "ty", "es", "or", "us", "age", "ied", "ify", "ily", "ine", "ise", "ize",
+         "let", "ure", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
+         "r", "s", "t", "u", "v", "w", "x", "y", "z", "ology", "ship", "ward", "wise"
+ };
+
+
+
+
+
 
 }

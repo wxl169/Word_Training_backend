@@ -13,6 +13,7 @@ import org.wxl.wordTraining.model.dto.user.*;
 import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
+import org.wxl.wordTraining.model.vo.user.UserPointRankVO;
 import org.wxl.wordTraining.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -21,6 +22,7 @@ import org.wxl.wordTraining.utils.RegularUtil;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * 用户接口
@@ -239,6 +241,16 @@ public class UserController {
     }
 
 
+    /**
+     * 获取积分排行榜
+     *
+     * @return 积分排行
+     */
+    @PostMapping("/get/rank")
+    @JwtToken
+    public BaseResponse<List<UserPointRankVO>> getPointsRanking() {
+        return ResultUtils.success(userService.getPointsRanking());
+    }
 
 
 

@@ -3,11 +3,13 @@ package org.wxl.wordTraining.service.impl;
 import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.wxl.wordTraining.common.ErrorCode;
 import org.wxl.wordTraining.constant.WordTrainingConstant;
 import org.wxl.wordTraining.exception.BusinessException;
 import org.wxl.wordTraining.mapper.UserMapper;
+import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.entity.WordAnswer;
 import org.wxl.wordTraining.mapper.WordAnswerMapper;
 import org.wxl.wordTraining.model.vo.wordTraining.WordTrainingVO;
@@ -32,9 +34,11 @@ import java.util.Map;
 public class WordAnswerServiceImpl extends ServiceImpl<WordAnswerMapper, WordAnswer> implements IWordAnswerService {
 
     private final UserMapper userMapper;
+    private final RedisTemplate redisTemplate;
     @Autowired
-    public WordAnswerServiceImpl(UserMapper userMapper) {
+    public WordAnswerServiceImpl(UserMapper userMapper,RedisTemplate redisTemplate) {
         this.userMapper = userMapper;
+        this.redisTemplate = redisTemplate;
     }
     /**
      * 保存用户答题记录
@@ -89,13 +93,24 @@ public class WordAnswerServiceImpl extends ServiceImpl<WordAnswerMapper, WordAns
         if (!b){
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"保存答题记录失败");
         }
-        if (difficulty.equals(WordTrainingConstant.CHALLENGE)){
+        if (difficulty.equals(WordTrainingConstant.CHALLENGE)) {
             //更新用户的积分总数
-           boolean updatePointAll = userMapper.updatePointAll(userId,pointAll);
-           if (!updatePointAll){
-               throw new BusinessException(ErrorCode.OPERATION_ERROR,"更新用户积分失败");
-           }
+            boolean updatePointAll = userMapper.updatePointAll(userId, pointAll);
+            if (!updatePointAll) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新用户积分失败");
+            }
+            String redisKey = "wordTraining:user:pointsRanking";
+             //如果存在，则更新redis中的数据
+            Double score = redisTemplate.opsForZSet().score(redisKey, userId);
+            if (score == null) {
+                User user = userMapper.selectById(userId);
+                redisTemplate.opsForZSet().add(redisKey, userId, user.getPointNumber());
+            }else{
+                redisTemplate.opsForZSet().incrementScore(redisKey, userId, pointAll);
+            }
+
         }
+
         return true;
     }
 }

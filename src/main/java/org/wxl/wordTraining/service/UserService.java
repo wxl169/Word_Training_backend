@@ -8,6 +8,7 @@ import org.wxl.wordTraining.model.entity.User;
 import org.wxl.wordTraining.model.vo.PageVO;
 import org.wxl.wordTraining.model.vo.user.LoginUserVO;
 import org.wxl.wordTraining.model.vo.user.UserListVO;
+import org.wxl.wordTraining.model.vo.user.UserPointRankVO;
 import org.wxl.wordTraining.model.vo.user.UserVO;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
@@ -134,4 +135,11 @@ public interface UserService extends IService<User> {
      * @return 是否修改成功
      */
     boolean updateUser(UserUpdateByUserRequest userUpdateByUserRequest, HttpServletRequest request);
+
+
+    /**
+     * 获取积分排行榜信息
+     * @return 积分排行榜信息
+     */
+    List<UserPointRankVO> getPointsRanking();
 }
