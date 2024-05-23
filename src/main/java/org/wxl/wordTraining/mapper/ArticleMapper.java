@@ -11,6 +11,7 @@ import org.wxl.wordTraining.model.vo.article.ArticleOneVO;
 import org.wxl.wordTraining.model.vo.article.ArticleVO;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * <p>
@@ -125,4 +126,11 @@ public interface ArticleMapper extends BaseMapper<TbArticle> {
      * @return
      */
     List<TbArticle> selectArticleByTag(String tagName);
+
+    /**
+     * 根据文章内容获取文章id
+     * @param complainObject 文章内容
+     * @return 文章id集合
+     */
+    Set<Long> selectArticleId(String complainObject);
 }

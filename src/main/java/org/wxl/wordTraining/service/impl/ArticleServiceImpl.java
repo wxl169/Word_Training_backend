@@ -128,11 +128,13 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
             String tag = gson.toJson(articleUpdateRequest.getTags());
             updateWrapper.set(TbArticle::getTags,tag);
         }
-
-        //如果该文章存在评论则 隐藏评论
-        boolean update = commentsMapper.updateCommentShow(articleUpdateRequest.getArticleId(),1);
-        if (!update){
-            throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章状态失败");
+        //查看该文章是否有评论
+        List<CommentListVO> commentListAll = commentsMapper.getCommentListAll(articleUpdateRequest.getArticleId());
+        if (commentListAll != null && !commentListAll.isEmpty()){
+            boolean update = commentsMapper.updateCommentShow(articleUpdateRequest.getArticleId(),1);
+            if (!update){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章状态失败");
+            }
         }
         return this.update(updateWrapper);
     }
@@ -269,10 +271,13 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, TbArticle> im
             if (StringUtils.isNotBlank(articleUpdateReviewOpinionsRequest.getReviewOpinions())){
                 updateWrapper.set(TbArticle::getStatus,ArticleConstant.RECTIFICATION);
             }
-            //如果该文章存在评论则 隐藏评论
-            boolean update = commentsMapper.updateCommentShow(articleUpdateReviewOpinionsRequest.getId(),1);
-            if (!update){
-                throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章状态失败");
+            //查看该文章是否有评论
+            List<CommentListVO> commentListAll = commentsMapper.getCommentListAll(articleUpdateReviewOpinionsRequest.getId());
+            if (commentListAll != null && !commentListAll.isEmpty()){
+                boolean update = commentsMapper.updateCommentShow(articleUpdateReviewOpinionsRequest.getId(),1);
+                if (!update){
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR,"修改文章状态失败");
+                }
             }
         }
         boolean update = this.update(updateWrapper);

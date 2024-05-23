@@ -372,6 +372,7 @@ public class WordTrainingServiceImpl implements WordTrainingService {
     }
 
     /**
+     * 生成填词模式
      * @param difficulty 难度
      * @param filteredWordVOList 单词列表
      * @param userAccount 用户账号
@@ -428,6 +429,16 @@ public class WordTrainingServiceImpl implements WordTrainingService {
 
             //生成正确答案的位置
             int correctIndex = random.nextInt(9);
+            //随机生成九个随机数，但是九个数不能相同
+            List<Integer> numberList = new ArrayList<>();
+            for (int i = 0; i < 9; i++) {
+                int randomNum = random.nextInt(list.size());
+                while (numberList.contains(randomNum)) {
+                    randomNum = random.nextInt(list.size());
+                }
+                numberList.add(randomNum);
+            }
+
             // 生成四个选项
             Set<String> options = new HashSet<>();
             for (int i = 0; i < 9; i++) {
@@ -435,7 +446,7 @@ public class WordTrainingServiceImpl implements WordTrainingService {
                     // 设置正确答案
                     options.add(changeBuilder.toString());
                 } else {
-                    options.add(list.get(random.nextInt(length)));
+                    options.add(list.get(numberList.get(i)));
                 }
             }
             // 将选项分别设置到对应的问题属性上
@@ -607,7 +618,7 @@ public class WordTrainingServiceImpl implements WordTrainingService {
                     while (true){
                         if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
                              healthValue = (int) redisTemplate.opsForHash().get(redisKeyByTraining, WordTrainingConstant.HEALTH_VALUE);
-                            if (healthValue > 0) {
+                            if (healthValue > 1) {
                                 healthValue--;
                                 redisTemplate.opsForHash().put(redisKeyByTraining, WordTrainingConstant.HEALTH_VALUE, healthValue);
                                 break;

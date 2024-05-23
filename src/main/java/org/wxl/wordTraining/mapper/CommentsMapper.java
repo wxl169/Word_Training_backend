@@ -8,6 +8,7 @@ import org.wxl.wordTraining.model.vo.comment.CommentUserVO;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * <p>
@@ -75,4 +76,11 @@ public interface CommentsMapper extends BaseMapper<Comments> {
      * @return 是否修改成功
      */
     boolean updateCommentShow(@Param("articleId") Long articleId,@Param("isShow") Integer isShow);
+
+    /**
+     * 根据评论内容查询评论
+     * @param complainObject 评论内容
+     * @return 评论id集合
+     */
+    Set<Long> selectCommentId(String complainObject);
 }

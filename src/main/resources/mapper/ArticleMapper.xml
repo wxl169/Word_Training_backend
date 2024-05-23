@@ -175,6 +175,9 @@
             parameterType="java.lang.String">
         select * from tb_article where tags like CONCAT('%',#{tagName},'%') and is_delete = 0;
     </select>
+    <select id="selectArticleId" resultType="java.lang.Long" parameterType="java.lang.String">
+        select id from tb_article where (title like CONCAT('%',#{complainObject},'%') or content like CONCAT('%',#{complainObject},'%') or description like CONCAT('%',#{complainObject},'%'))  and is_delete = 0;
+    </select>
 
 
 </mapper>

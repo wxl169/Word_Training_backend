@@ -16,5 +16,25 @@
         <result column="update_time" property="updateTime" />
         <result column="is_delete" property="isDelete" />
     </resultMap>
+    <select id="selectWordAnswerById" resultType="org.wxl.wordTraining.model.vo.wordAnswer.WordAnswerVO"
+            parameterType="java.lang.Long">
+        select  `status`,error_cause,update_time as lastErrorTime
+        from tb_word_answer
+        where user_id = #{userId} and word_id = #{wordId} and is_true = 1 order by update_time DESC LIMIT 1;
+    </select>
+    <select id="selectNumber" resultType="org.wxl.wordTraining.model.vo.wordAnswer.WordAnswerVO">
+        SELECT
+            SUM(CASE WHEN is_true = 1 THEN 1 ELSE 0 END) AS errorCount,
+            SUM(CASE WHEN is_true = 0 THEN 1 ELSE 0 END) AS correctCount
+        FROM
+            tb_word_answer
+        WHERE
+            user_id = #{userId} AND word_id = #{wordId};
+    </select>
+    <select id="selectWordAnswerByIdEver" resultType="org.wxl.wordTraining.model.vo.wordAnswer.WordAnswerVO">
+        select  `status`,error_cause,update_time as lastErrorTime
+        from tb_word_answer
+        where user_id = #{userId} and word_id = #{wordId} and is_true = 0 order by update_time DESC LIMIT 1;
+    </select>
 
 </mapper>

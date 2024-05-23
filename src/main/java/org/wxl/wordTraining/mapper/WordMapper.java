@@ -3,7 +3,9 @@ package org.wxl.wordTraining.mapper;
 import org.wxl.wordTraining.model.entity.Word;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * <p>
@@ -35,4 +37,25 @@ public interface WordMapper extends BaseMapper<Word> {
      * @return 单词类型列表
      */
     List<Word> selectWordByWordType(String oldTypeName);
+
+    /**
+     * 根据单词获取单词id列表
+     * @param word 单词
+     * @return 单词id列表
+     */
+    Set<Long> selectWordIdList(String word);
+
+    /**
+     * 根据单词翻译获取单词id列表
+     * @param translation 翻译
+     * @return 单词id列表
+     */
+    Set<Long> selectWordIdByTranslation(String translation);
+
+    /**
+     * 根据单词类型集合获取单词id集合
+     * @param typeSet 单词类型集合
+     * @return 单词id集合
+     */
+    Set<Long>selectWordIdByType(Set<String> typeSet);
 }

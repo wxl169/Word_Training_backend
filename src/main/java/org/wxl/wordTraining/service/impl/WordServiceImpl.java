@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.wxl.wordTraining.common.ErrorCode;
@@ -141,14 +142,15 @@ public class WordServiceImpl extends ServiceImpl<WordMapper, Word> implements IW
     public ResponseEntity downloadWordFile(HttpServletResponse response) {
         FileInputStream fis = null;
         try {
-            String fileName = "wordDownload.csv";
+            String fileName = "wordDownload.xlsx";
             String path = "/file/" + fileName;
             fis = new FileInputStream(new ClassPathResource(path).getFile());
             byte[] bytes = new byte[fis.available()];
             fis.read(bytes);
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.add("Content-Disposition", "attachment;filename=" + fileName);
-            ResponseEntity res = new ResponseEntity<>(bytes, httpHeaders, HttpStatus.OK);
+            httpHeaders.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            ResponseEntity<byte[]> res = new ResponseEntity<>(bytes, httpHeaders, HttpStatus.OK);
             return res;
         } catch (Exception e) {
             e.printStackTrace();

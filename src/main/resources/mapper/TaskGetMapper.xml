@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.wxl.wordTraining.mapper.TaskGetMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="org.wxl.wordTraining.model.entity.TaskGet">
+        <id column="id" property="id" />
+        <result column="task_id" property="taskId" />
+        <result column="user_id" property="userId" />
+        <result column="now_number" property="nowNumber" />
+        <result column="status" property="status" />
+        <result column="begin_time" property="beginTime" />
+        <result column="finish_time" property="finishTime" />
+        <result column="update_time" property="updateTime" />
+        <result column="is_delete" property="isDelete" />
+    </resultMap>
+
+</mapper>

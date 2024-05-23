@@ -60,5 +60,8 @@
         ORDER BY create_time asc
             LIMIT 1;
     </select>
+    <select id="selectCommentId" resultType="java.lang.Long" parameterType="java.lang.String">
+        select id from tb_comments where content like CONCAT('%',#{complainObject},'%') and is_delete = 0 and is_show = 0;
+    </select>
 
 </mapper>

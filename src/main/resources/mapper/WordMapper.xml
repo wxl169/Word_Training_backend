@@ -38,5 +38,19 @@
             parameterType="java.lang.String">
         select id,type from tb_word where type like concat('%',#{wordType},'%') and is_delete = 0;
     </select>
+    <select id="selectWordIdList" resultType="java.lang.Long" parameterType="java.lang.String">
+        select id from tb_word where word like concat('%',#{word},'%') and is_delete = 0;
+    </select>
+    <select id="selectWordIdByTranslation" resultType="java.lang.Long" parameterType="java.lang.String">
+        select id from tb_word where `translation` like concat('%',#{translation},'%') and is_delete = 0;
+    </select>
+    <select id="selectWordIdByType" resultType="java.lang.Long"
+            parameterType="java.util.Set">
+        select id from tb_word where type in
+        <foreach collection="typeSet" item="wordType" open="(" separator="," close=")">
+            #{wordType}
+        </foreach>
+        and is_delete = 0;
+    </select>
 
 </mapper>
